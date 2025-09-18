@@ -1,0 +1,23 @@
+# Archivos de configuración sensibles.
+# Es una mala práctica subir las credenciales de la base de datos a un repositorio.
+config/db.php
+
+# Directorios con contenido subido por los usuarios.
+# Estos archivos no son parte del código fuente y no deben ser versionados.
+/bitacoras/
+/archivos/
+# La documentación indica que aquí se suben fotos de perfil.
+# Si también contiene imágenes estáticas del tema, considera moverlas
+# a otro directorio (ej. /assets/static_images/) y solo ignorar las subidas.
+/assets/img/
+
+# Archivos de dependencias (buena práctica para el futuro si usas Composer o NPM)
+/vendor/
+/node_modules/
+
+# Archivos de sistema operativo, logs y configuraciones de IDE
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

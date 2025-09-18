@@ -1,0 +1,163 @@
+/* assets/css/themes.css */
+
+/* --- Estilos Globales Modernos para Páginas de Gestión --- */
+
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow-modern: 0 10px 25px rgba(0, 0, 0, 0.07);
+    --shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+body {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+[data-bs-theme="dark"] body {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+}
+
+/* Navbar - Aplicar clase 'modern-navbar' en partials/navbar.php */
+.modern-navbar {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+}
+
+/* Contenedor principal */
+.main-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Títulos */
+.main-container h2 {
+    font-weight: 600;
+    color: var(--bs-emphasis-color);
+}
+
+/* Tarjetas para filtros y tablas */
+.card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: var(--shadow-modern);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-hover);
+}
+
+/* Tablas modernas */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: rgba(0, 0, 0, 0.02);
+}
+
+[data-bs-theme="dark"] .table {
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.03);
+}
+
+/* Modales */
+.modal-content {
+    border-radius: 20px;
+    border: none;
+    box-shadow: var(--shadow-modern);
+}
+
+/* --- Theme Switcher Flotante --- */
+.theme-switcher {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--glass-bg);
+    padding: 0.5rem;
+    border-radius: 50px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-modern);
+}
+
+.theme-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: none;
+    background-color: transparent;
+    color: var(--bs-emphasis-color);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.theme-btn:hover {
+    transform: scale(1.1);
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.theme-btn.active {
+    background: var(--primary-gradient);
+    color: white;
+    transform: scale(1.15);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+}
+
+/* --- Fin de Estilos Globales --- */
+
+/* --- Estilos para Formularios de Empleado --- */
+.form-control.is-valid, .form-select.is-valid {
+    border-color: #198754;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.94-.94 1.4 1.4L7.03 4.8l.94.94L5.64 8.09l-2.06-2.06z'/%3e%3c/svg%3e");
+}
+
+.input-group-text.bg-success {
+    border-color: #198754;
+}
+
+.form-check-label {
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .input-group-text {
+        min-width: 45px;
+        justify-content: center;
+    }
+}
+/* --- Fin Estilos Formularios --- */
+
+[data-bs-theme="dark"] {
+    /* Make stat card text more visible in dark mode */
+    .stat-card .text-muted {
+        color: var(--bs-secondary-color) !important;
+    }
+
+    /* Adjust login page background */
+    body.login-card-page {
+        background-color: #212529;
+    }
+
+    .form-control[readonly]:not(input[type=date]) {
+        background-color: var(--bs-tertiary-bg);
+    }
+}
+
+/* Fix para que el texto de los gráficos (ej. Chart.js) sea visible en modo oscuro */
+[data-bs-theme="dark"] .chart-container {
+    color: var(--bs-body-color);
+}

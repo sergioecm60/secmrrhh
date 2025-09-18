@@ -1,0 +1,18 @@
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #recibo-imprimible, #recibo-imprimible * {
+        visibility: visible;
+    }
+
+    #recibo-imprimible {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        border: none !important;
+        box-shadow: none !important;
+    }
+}

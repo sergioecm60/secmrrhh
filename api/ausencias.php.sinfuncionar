@@ -1,0 +1,517 @@
+<?php
+session_start();
+header('Content-Type: application/json; charset=utf-8');
+require_once '../config/db.php';
+
+try {
+    if (!isset($_SESSION['user'])) {
+        throw new Exception("Acceso no autorizado.", 401);
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if (isset($_GET['fecha'])) {
+            $fecha = $_GET['fecha'];
+            
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                throw new Exception("Formato de fecha inválido.", 400);
+            }
+            
+            // Consulta que determina el estado de cada empleado para una fecha dada.
+            // Combina información de ausencias aprobadas y novedades pendientes.
+            $sql = "
+                SELECT 
+                    p.id_personal,
+                    p.apellido_nombre,
+                    p.legajo,
+                    -- 1. Se determina el estado del día con una jerarquía de prioridades.
+                    CASE 
+                        WHEN a.id_ausencia IS NOT NULL THEN a.tipo_dia      -- Si hay una ausencia aprobada, se usa su tipo.
+                        WHEN n_pend.id_novedad IS NOT NULL THEN 'Pendiente' -- Si no, pero hay una novedad pendiente, se marca como 'Pendiente'.
+                        ELSE 'Presente'                                     -- Si no hay nada, el empleado está 'Presente'.
+                    END as estado_diario,
+                    -- 2. Se obtiene el motivo o descripción de la ausencia/novedad.
+                    CASE 
+                        WHEN a.id_ausencia IS NOT NULL THEN 
+                            COALESCE(n_aprob.descripcion, n_aprob.tipo, a.tipo_dia) -- Usa la descripción de la novedad, o su tipo, o el tipo de la ausencia.
+                        WHEN n_pend.id_novedad IS NOT NULL THEN 
+                            CONCAT('Pendiente: ', n_pend.tipo,  -- Construye un texto informativo para novedades pendientes.
+                                   CASE WHEN n_pend.descripcion != '' THEN CONCAT(' - ', n_pend.descripcion) ELSE '' END)
+                        ELSE ''
+                    END as motivo_ausencia
+                FROM personal p
+                -- Ausencias aprobadas en la fecha específica
+                LEFT JOIN ausencias a ON p.id_personal = a.id_personal 
+                                      AND a.fecha = :fecha
+                -- Novedades asociadas a ausencias aprobadas
+                LEFT JOIN novedades n_aprob ON a.id_novedad = n_aprob.id_novedad
+                -- Novedades pendientes que cubren la fecha (solo si no hay ausencia aprobada)
+                LEFT JOIN novedades n_pend ON p.id_personal = n_pend.id_personal 
+                                          AND a.id_ausencia IS NULL 
+                                          AND n_pend.estado = 'Pendiente' 
+                                          AND :fecha BETWEEN n_pend.fecha_desde AND n_pend.fecha_hasta
+                WHERE p.estado = 'activo'
+                GROUP BY p.id_personal, p.apellido_nombre, p.legajo
+                ORDER BY p.apellido_nombre
+            ";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(['fecha' => $fecha]);
+            $parte_diario = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Log de auditoría/uso para monitorear quién consulta el parte y cuándo.
+            $username = $_SESSION['user']['username'] ?? $_SESSION['user']['email'] ?? 'Usuario';
+            error_log("Parte Diario - Usuario: {$username}, Fecha: {$fecha}, Total: " . count($parte_diario));
+
+            echo json_encode([
+                'success' => true, 
+                'data' => $parte_diario,
+                'fecha_consulta' => $fecha,
+                'total_empleados' => count($parte_diario)
+            ]);
+
+        } else {
+            throw new Exception("Parámetro 'fecha' requerido.", 400);
+        }
+
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Crear nueva novedad
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!$input) {
+            throw new Exception("Datos JSON inválidos.", 400);
+        }
+
+        // Validar datos requeridos
+        $required = ['id_personal', 'tipo', 'fecha_desde', 'fecha_hasta'];
+        foreach ($required as $field) {
+            if (empty($input[$field])) {
+                throw new Exception("Campo requerido: {$field}", 400);
+            }
+        }
+
+        // Obtener ID del usuario que registra
+        $registrado_por = $_SESSION['user']['id_usuario'] ?? 1;
+
+        // Se inicia una transacción para asegurar la integridad de los datos.
+        // O se guardan todos los registros (novedad y ausencias), o no se guarda nada.
+        $pdo->beginTransaction();
+
+        try {
+            // Paso 1: Insertar el registro principal en la tabla 'novedades'.
+            $sqlNovedad = "
+                INSERT INTO novedades (
+                    id_personal, tipo, descripcion, fecha_solicitud, fecha_desde, fecha_hasta, id_documento, estado, registrado_por
+                ) VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?)
+            ";
+            
+            $stmtNovedad = $pdo->prepare($sqlNovedad);
+            $stmtNovedad->execute([
+                $input['id_personal'],
+                $input['tipo'],
+                $input['descripcion'] ?? '',
+                $input['fecha_desde'],
+                $input['fecha_hasta'],
+                !empty($input['id_documento']) ? $input['id_documento'] : null,
+                $input['estado'] ?? 'Pendiente',
+                $registrado_por
+            ]);
+
+            $id_novedad = $pdo->lastInsertId();
+
+            // Paso 2: Si la novedad se crea como "Aprobada", se generan los registros diarios en la tabla 'ausencias'.
+            if (($input['estado'] ?? 'Pendiente') === 'Aprobada') {
+                $fecha_desde = new DateTime($input['fecha_desde']);
+                $fecha_hasta = new DateTime($input['fecha_hasta']);
+                
+                $sqlAusencia = "INSERT INTO ausencias (id_novedad, id_personal, fecha, tipo_dia) VALUES (?, ?, ?, ?)";
+                $stmtAusencia = $pdo->prepare($sqlAusencia);
+
+                // Mapea el tipo de novedad a un tipo de día de ausencia más genérico.
+                $map_tipo_dia = ['Medico' => 'Reposo', 'Enfermedad' => 'Reposo', 'Vacaciones' => 'Vacaciones', 'Licencia especial' => 'Licencia', 'Maternidad' => 'Licencia', 'Otro' => 'Otro'];
+                $tipo_dia = $map_tipo_dia[$input['tipo']] ?? 'Otro';
+
+                // Itera por cada día del rango de fechas y crea un registro en 'ausencias'.
+                $fecha_actual = clone $fecha_desde;
+                while ($fecha_actual <= $fecha_hasta) {
+                    $stmtAusencia->execute([$id_novedad, $input['id_personal'], $fecha_actual->format('Y-m-d'), $tipo_dia]);
+                    $fecha_actual->add(new DateInterval('P1D'));
+                }
+            }
+            
+            // Si todo fue exitoso, se confirman los cambios en la base de datos.
+            $pdo->commit();
+
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Novedad registrada exitosamente',
+                'id_novedad' => $id_novedad
+            ]);
+
+        } catch (Exception $e) {
+            // Si ocurre cualquier error, se revierten todos los cambios.
+            $pdo->rollBack();
+            throw $e;
+        }
+
+    } else {
+        throw new Exception("Método no permitido.", 405);
+    }
+
+} catch (Exception $e) {
+    // Bloque de captura de errores global.
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    
+    $httpCode = is_int($e->getCode()) && $e->getCode() >= 400 && $e->getCode() < 600 
+                ? $e->getCode() : 500;
+    
+    http_response_code($httpCode);
+    
+    // Registrar el error en el log del servidor para depuración, sin exponerlo al cliente.
+    error_log("Error en ausencias.php: " . $e->getMessage() . " en línea " . $e->getLine());
+    
+    echo json_encode([
+        'success' => false, 
+        'message' => $e->getMessage(),
+        'error_code' => $httpCode
+    ]);
+}
+?>
+```
+
+#### 3. Crear la Interfaz (`gestion_ausencias.php`)
+
+Esta página te permitirá ver el estado diario de los empleados y registrar nuevas ausencias.
+
+```diff
+--- /dev/null
++++ b/c:\laragon\www\secmrrhh\gestion_ausencias.php
+@@ -0,0 +1,213 @@
++<?php
++session_start();
++if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
++    header("Location: dashboard.php");
++    exit;
++}
++?>
++<!DOCTYPE html>
++<html lang="es">
++<head>
++    <meta charset="UTF-8">
++    <title>Parte Diario / Gestión de Ausencias - SECM RRHH</title>
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
++    <link rel="stylesheet" href="assets/css/themes.css">
++    <script>
++      // IIFE to apply theme immediately
++      (function() {
++        const getStoredTheme = () => localStorage.getItem('theme');
++        const getPreferredTheme = () => {
++          const storedTheme = getStoredTheme();
++          if (storedTheme) return storedTheme;
++          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
++        };
++        const theme = getPreferredTheme();
++        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme);
++      })();
++    </script>
++</head>
++<body>
++<?php include('partials/navbar.php'); ?>
++<div class="container mt-4">
++    <div class="d-flex justify-content-between align-items-center mb-4">
++        <h2><i class="bi bi-calendar-check"></i> Parte Diario</h2>
++        <div class="col-md-3">
++            <label for="fecha-parte" class="form-label">Seleccionar Fecha</label>
++            <input type="date" id="fecha-parte" class="form-control" value="<?= date('Y-m-d') ?>">
++        </div>
++    </div>
++    <div class="table-responsive">
++        <table class="table table-striped table-hover">
++            <thead class="table-dark">
++                <tr>
++                    <th>Legajo</th>
++                    <th>Empleado</th>
++                    <th>Estado del Día</th>
++                    <th>Motivo / Observaciones</th>
++                    <th>Acciones</th>
++                </tr>
++            </thead>
++            <tbody id="parte-diario-list"></tbody>
++        </table>
++    </div>
++</div>
++
++<!-- Modal Ausencia -->
++<div class="modal fade" id="modalAusencia" tabindex="-1">
++    <div class="modal-dialog modal-lg">
++        <div class="modal-content">
++            <div class="modal-header">
++                <h5 class="modal-title">Registrar Ausencia</h5>
++                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
++            </div>
++            <form id="form-ausencia">
++                <div class="modal-body">
++                    <input type="hidden" id="ausencia-id-personal">
++                    <div class="mb-3">
++                        <label class="form-label">Empleado</label>
++                        <input type="text" id="ausencia-nombre-empleado" class="form-control" readonly>
++                    </div>
++                    <div class="row">
++                        <div class="col-md-6 mb-3">
++                            <label class="form-label">Tipo de Ausencia *</label>
++                            <select id="ausencia-tipo" class="form-select" required>
++                                <option value="Enfermedad">Enfermedad</option>
++                                <option value="Accidente">Accidente</option>
++                                <option value="Vacaciones">Vacaciones</option>
++                                <option value="Licencia sin goce">Licencia sin goce</option>
++                                <option value="Licencia especial">Licencia especial</option>
++                                <option value="Maternidad/Paternidad">Maternidad/Paternidad</option>
++                                <option value="Otro">Otro</option>
++                            </select>
++                        </div>
++                        <div class="col-md-6 mb-3">
++                            <label class="form-label">Estado</label>
++                            <select id="ausencia-estado" class="form-select">
++                                <option value="Aprobada">Aprobada</option>
++                                <option value="Pendiente">Pendiente</option>
++                                <option value="Rechazada">Rechazada</option>
++                            </select>
++                        </div>
++                    </div>
++                    <div class="row">
++                        <div class="col-md-6 mb-3">
++                            <label class="form-label">Fecha Desde *</label>
++                            <input type="date" id="ausencia-fecha-desde" class="form-control" required>
++                        </div>
++                        <div class="col-md-6 mb-3">
++                            <label class="form-label">Fecha Hasta *</label>
++                            <input type="date" id="ausencia-fecha-hasta" class="form-control" required>
++                        </div>
++                    </div>
++                    <div class="mb-3">
++                        <label class="form-label">Motivo / Observaciones</label>
++                        <textarea id="ausencia-motivo" class="form-control" rows="3"></textarea>
++                    </div>
++                    <div class="mb-3">
++                        <label class="form-label">Vincular Documento (Opcional)</label>
++                        <select id="ausencia-documento" class="form-select">
++                            <option value="">Ninguno</option>
++                            <!-- Se carga con JS -->
++                        </select>
++                    </div>
++                </div>
++                <div class="modal-footer">
++                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
++                    <button type="submit" class="btn btn-primary">Guardar Registro</button>
++                </div>
++            </form>
++        </div>
++    </div>
++</div>
++
++<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
++<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
++<script src="assets/js/theme-switcher.js"></script>
++<script>
++$(document).ready(function() {
++    const modal = $('#modalAusencia');
++
++    function cargarParteDiario() {
++        const fecha = $('#fecha-parte').val();
++        if (!fecha) return;
++
++        $('#parte-diario-list').html('<tr><td colspan="5" class="text-center">Cargando...</td></tr>');
++
++        $.get(`api/ausencias.php?fecha=${fecha}`, function(res) {
++            if (!res.success) {
++                $('#parte-diario-list').html(`<tr><td colspan="5" class="text-center text-danger">${res.message}</td></tr>`);
++                return;
++            }
++
++            let html = '';
++            const estadoBadges = {
++                'Presente': 'bg-success',
++                'Vacaciones': 'bg-info',
++                'Enfermedad': 'bg-warning text-dark',
++                'Accidente': 'bg-danger',
++                'Licencia especial': 'bg-primary',
++                'Licencia sin goce': 'bg-secondary',
++                'Maternidad/Paternidad': 'bg-light text-dark',
++                'Otro': 'bg-dark'
++            };
++
++            res.data.forEach(item => {
++                const badgeClass = estadoBadges[item.estado_diario] || 'bg-secondary';
++                html += `<tr>
++                    <td>${item.legajo}</td>
++                    <td>${item.apellido_nombre}</td>
++                    <td><span class="badge ${badgeClass}">${item.estado_diario}</span></td>
++                    <td>${item.motivo_ausencia || '-'}</td>
++                    <td>
++                        <button class="btn btn-sm btn-outline-primary registrar-ausencia" data-id-personal="${item.id_personal}" data-nombre-empleado="${item.apellido_nombre}">
++                            <i class="bi bi-calendar-plus"></i> Registrar Ausencia
++                        </button>
++                    </td>
++                </tr>`;
++            });
++            $('#parte-diario-list').html(html || '<tr><td colspan="5" class="text-center">No hay empleados activos.</td></tr>');
++        });
++    }
++
++    $('#fecha-parte').on('change', cargarParteDiario);
++
++    $(document).on('click', '.registrar-ausencia', function() {
++        const idPersonal = $(this).data('id-personal');
++        const nombreEmpleado = $(this).data('nombre-empleado');
++
++        $('#ausencia-id-personal').val(idPersonal);
++        $('#ausencia-nombre-empleado').val(nombreEmpleado);
++
++        // Cargar documentos del empleado para el select
++        $('#ausencia-documento').html('<option value="">Ninguno</option>');
++        $.get(`api/documentacion.php?id_personal=${idPersonal}`, function(res) {
++            if (res.success) {
++                let docOptions = '<option value="">Ninguno</option>';
++                res.data.forEach(doc => {
++                    docOptions += `<option value="${doc.id_documento}">${doc.tipo_documento_nombre} - ${doc.nombre_archivo_original}</option>`;
++                });
++                $('#ausencia-documento').html(docOptions);
++            }
++        });
++
++        modal.modal('show');
++    });
++
++    $('#form-ausencia').submit(function(e) {
++        e.preventDefault();
++        const data = {
++            id_personal: $('#ausencia-id-personal').val(),
++            tipo: $('#ausencia-tipo').val(),
++            estado: $('#ausencia-estado').val(),
++            fecha_desde: $('#ausencia-fecha-desde').val(),
++            fecha_hasta: $('#ausencia-fecha-hasta').val(),
++            motivo: $('#ausencia-motivo').val(),
++            id_documento: $('#ausencia-documento').val()
++        };
++
++        $.ajax({
++            url: 'api/ausencias.php',
++            method: 'POST',
++            contentType: 'application/json',
++            data: JSON.stringify(data),
++            success: (res) => { if (res.success) { modal.modal('hide'); cargarParteDiario(); } else { alert('Error: ' + res.message); } },
++            error: (xhr) => alert('Error: ' + (xhr.responseJSON?.message || 'Error de conexión'))
++        });
++    });
++
++    modal.on('hidden.bs.modal', () => {
++        $('#form-ausencia')[0].reset();
++        $('#ausencia-id-personal').val('');
++    });
++
++    // Carga inicial
++    cargarParteDiario();
++});
++</script>
++</body>
++</html><?php
+session_start();
+// API para obtener los datos del Parte Diario
+
+header('Content-Type: application/json; charset=utf-8');
+require_once '../config/db.php';
+
+try {
+    if (!isset($_SESSION['user'])) {
+        throw new Exception("Acceso no autorizado.", 401);
+    }
+
+    if (['REQUEST_METHOD'] === 'GET') {
+        if (isset(['fecha'])) {
+             = ['fecha'];
+            
+            // Consulta para el Parte Diario que une empleados con sus ausencias para una fecha específica
+             = "
+                SELECT 
+                    p.id_personal,
+                    p.apellido_nombre,
+                    p.legajo,
+                    -- Lógica de estado mejorada directamente en SQL
+                    CASE 
+                        WHEN a.id_ausencia IS NOT NULL THEN a.tipo_dia -- Ausencia aprobada, usamos su tipo.
+                        WHEN n_pend.id_novedad IS NOT NULL THEN 'Pendiente' -- Hay una novedad pendiente que cubre el día.
+                        ELSE 'Presente' -- Si no hay ni aprobada ni pendiente, está presente.
+                    END as estado_diario,
+                    -- Combina la descripción de una novedad aprobada o una pendiente
+                    COALESCE(n_aprob.descripcion, n_pend.descripcion) as motivo_ausencia,
+                    -- Combina el estado de una novedad aprobada o una pendiente
+                    COALESCE(n_aprob.estado, n_pend.estado) as estado_novedad
+                FROM personal p
+                -- Join para ausencias aprobadas en la fecha
+                LEFT JOIN ausencias a ON p.id_personal = a.id_personal AND a.fecha = :fecha
+                LEFT JOIN novedades n_aprob ON a.id_novedad = n_aprob.id_novedad
+                -- Join para novedades pendientes que cubren la fecha, solo si no hay ausencia aprobada
+                LEFT JOIN novedades n_pend ON p.id_personal = n_pend.id_personal 
+                                          AND a.id_ausencia IS NULL 
+                                          AND n_pend.estado = 'Pendiente' 
+                                          AND :fecha BETWEEN n_pend.fecha_desde AND n_pend.fecha_hasta
+                WHERE p.estado = 'activo'
+                GROUP BY p.id_personal, p.apellido_nombre, p.legajo
+                ORDER BY p.apellido_nombre
+            ";
+            
+             = ->prepare();
+            // Usamos un array asociativo para el parámetro nombrado :fecha
+            ->execute(['fecha' => ]);
+             = ->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(['success' => true, 'data' => ]);
+        } else {
+            throw new Exception("Parámetro 'fecha' requerido.", 400);
+        }
+    } else {
+        throw new Exception("Método no permitido.", 405);
+    }
+
+} catch (Exception ) {
+    if (isset() && ->inTransaction()) {
+        ->rollBack();
+    }
+     = is_int(->getCode()) && ->getCode() >= 400 && ->getCode() < 600 ? ->getCode() : 500;
+    http_response_code();
+    echo json_encode(['success' => false, 'message' => ->getMessage()]);
+}
+?>
+
+```
+
+#### 4. Añadir el Enlace en la Barra de Navegación (`partials/navbar.php`)
+
+Añadimos un enlace directo al "Parte Diario" para un acceso rápido.
+
+```diff
+--- a/c:\laragon\www\secmrrhh\partials\navbar.php
++++ b/c:\laragon\www\secmrrhh\partials\navbar.php
+@@ -28,6 +28,11 @@
+                         <li><a class="dropdown-item" href="empleados_inactivos.php">Ver Inactivos</a></li>
+                     </ul>
+                 </li>
++                <li class="nav-item">
++                    <a class="nav-link <?= $currentPage == 'gestion_ausencias.php' ? 'active' : '' ?>" href="gestion_ausencias.php">
++                        <i class="bi bi-calendar-check"></i> Parte Diario
++                    </a>
++                </li>
+                 <li class="nav-item dropdown">
+                     <a class="nav-link dropdown-toggle <?= in_array($currentPage, ['areas.php', 'funciones.php']) ? 'active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown">
+                         <i class="bi bi-diagram-3"></i> Áreas / Funciones
+
+```
+
+Con estas dos fases completadas, tu sistema ahora tiene una gestión de documentos mucho más robusta y una nueva y potente funcionalidad para el seguimiento diario de los empleados. ¡Un gran avance!
+
+<!--
+[PROMPT_SUGGESTION]¿Cómo podemos añadir un calendario visual en la página de "Parte Diario" para ver las ausencias del mes?[/PROMPT_SUGGESTION]
+[PROMPT_SUGGESTION]Analiza la seguridad del sistema y sugiere 3 mejoras adicionales.[/PROMPT_SUGGESTION]
+-->

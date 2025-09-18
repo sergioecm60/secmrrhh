@@ -1,0 +1,3 @@
+legajo,apellido,nombre,documento,cuil,nacimiento,sexo,ingreso,email,estado_civil,direccion,localidad,telefono_celular,sueldo_basico
+1001,Perez,Juan,30123456,20301234567,1985-05-10,M,2020-01-15,juan.perez@example.com,soltero,"Av. Siempre Viva 742",Springfield,1155667788,150000.00
+1002,Gomez,Maria,32987654,27329876545,1990-11-22,F,2021-03-20,maria.gomez@example.com,casado,"Calle Falsa 123",CABA,1133445566,165000.50
