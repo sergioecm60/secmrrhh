@@ -30,7 +30,7 @@ if (isset($_SESSION['user'])) {
 // --- Headers de Seguridad ---
 header('Content-Type: text/html; charset=utf-8');
 // CSP más estricta al mover los estilos a un archivo CSS externo y usar nonce para estilos mínimos.
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{$nonce}' https://code.jquery.com; style-src 'self' https://cdn.jsdelivr.net/npm/ 'nonce-{$nonce}'; font-src https://cdn.jsdelivr.net/npm/; connect-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:;");
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{$nonce}' https://code.jquery.com; style-src 'self' https://cdn.jsdelivr.net/npm/; font-src https://cdn.jsdelivr.net/npm/; connect-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:;");
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -41,45 +41,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{$
     <title>Iniciar Sesión - SECM RRHH</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="assets/css/login.css">
-    <style nonce="<?= $nonce ?>">
-        /* Estilos para la animación de carga y shake, que son pequeños y específicos */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--primary-gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            opacity: 1;
-            transition: opacity 0.5s ease;
-        }
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-top: 3px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        .fade-in {
-            opacity: 0;
-            animation: fadeIn 1s ease-in forwards;
-        }
-        @keyframes fadeIn {
-            to { opacity: 1; }
-        }
-        .shake { animation: shake 0.5s ease-in-out; }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/login.css?v=<?= filemtime('assets/css/login.css') ?>">
 </head>
 <body>
     <div class="loading-overlay" id="loadingOverlay">

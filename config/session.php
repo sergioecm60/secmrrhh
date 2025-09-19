@@ -1,6 +1,14 @@
 <?php
 // c:\laragon\www\secmrrhh\config\session.php
 
+// --- Headers de Seguridad y Cache ---
+// Prevenir cache en páginas dinámicas
+header('Cache-Control: no-cache, private');
+header_remove('Pragma'); // Deprecado
+header_remove('Expires'); // Deprecado
+// Prevenir MIME-sniffing
+header('X-Content-Type-Options: nosniff');
+
 // Define una ruta de guardado de sesión personalizada dentro del proyecto.
 // Esto asegura que las sesiones se guarden en un lugar con los permisos correctos
 // y hace que la configuración sea explícita y no dependa de php.ini.

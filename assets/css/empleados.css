@@ -1,0 +1,25 @@
+/* assets/css/empleados.css */
+
+.loading-overlay {
+    position: relative;
+}
+.loading-overlay::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: none;
+    z-index: 10;
+}
+.loading-overlay.loading::after {
+    display: block;
+}
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+}

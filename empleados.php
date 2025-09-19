@@ -15,32 +15,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <title>Lista de Empleados - SECM RRHH</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="assets/css/themes.css">
-    <style>
-        .loading-overlay {
-            position: relative;
-        }
-        .loading-overlay::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.8);
-            display: none;
-            z-index: 10;
-        }
-        .loading-overlay.loading::after {
-            display: block;
-        }
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1050;
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/themes.css?v=<?= filemtime('assets/css/themes.css') ?>">
+    <link rel="stylesheet" href="assets/css/empleados.css?v=<?= filemtime('assets/css/empleados.css') ?>">
 </head>
 <body>
     <?php include 'partials/navbar.php'; ?>
@@ -159,7 +135,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/theme-switcher.js"></script>
+    <script src="assets/js/theme-switcher.js?v=<?= filemtime('assets/js/theme-switcher.js') ?>"></script>
     <script>
         $(document).ready(function() {
             const isAdmin = <?= json_encode($is_admin) ?>;
