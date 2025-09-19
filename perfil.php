@@ -63,6 +63,38 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <?php include 'partials/theme_switcher.php'; ?>
 
+<!-- Modal Cambiar Contraseña -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changePasswordModalLabel">Cambiar Contraseña</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="form-change-password">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="current_password" class="form-label">Contraseña Actual *</label>
+                        <input type="password" id="current_password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modal_new_password" class="form-label">Nueva Contraseña *</label>
+                        <input type="password" id="modal_new_password" class="form-control" required minlength="6">
+                    </div>
+                    <div class="mb-3">
+                        <label for="modal_confirm_password" class="form-label">Confirmar Nueva Contraseña *</label>
+                        <input type="password" id="modal_confirm_password" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -106,6 +138,47 @@ $(document).ready(function() {
             },
             error: function(xhr) {
                 showToast(xhr.responseJSON?.message || 'Error de conexión', 'error');
+            }
+        });
+    });
+
+    $('#form-change-password').submit(function(e) {
+        e.preventDefault();
+
+        const newPass = $('#modal_new_password').val();
+        const confirmPass = $('#modal_confirm_password').val();
+
+        if (newPass !== confirmPass) {
+            showToast('Las nuevas contraseñas no coinciden.', 'error');
+            return;
+        }
+        if (newPass.length < 6) {
+            showToast('La nueva contraseña debe tener al menos 6 caracteres.', 'warning');
+            return;
+        }
+
+        const data = {
+            id_usuario: $('#user-id').val(),
+            current_password: $('#current_password').val(),
+            password: newPass
+        };
+
+        $.ajax({
+            url: 'api/usuarios.php',
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(response) {
+                if (response.success) {
+                    showToast('Contraseña actualizada correctamente.', 'success');
+                    $('#changePasswordModal').modal('hide');
+                    $('#form-change-password')[0].reset();
+                } else {
+                    showToast(response.message || 'Error al actualizar la contraseña.', 'error');
+                }
+            },
+            error: function(xhr) {
+                showToast(xhr.responseJSON?.message || 'Error de conexión.', 'error');
             }
         });
     });

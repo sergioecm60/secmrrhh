@@ -17,6 +17,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 </head>
 <body>
 <?php include('partials/navbar.php'); ?>
+
+<!-- Contenedor para notificaciones Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <div class="container main-container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-people-fill"></i> Sindicatos</h2>
@@ -104,6 +108,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js"></script>
 <script>
 $(document).ready(function() {
     const apiEndpoint = 'api/sindicatos.php';
@@ -170,7 +175,16 @@ $(document).ready(function() {
             method: id ? 'PUT' : 'POST',
             contentType: 'application/json',
             data: JSON.stringify(data),
-            success: (res) => { if (res.success) { modal.modal('hide'); cargarDatos(); } else { alert('Error: ' + res.message); } }
+            success: (res) => { 
+                if (res.success) { 
+                    modal.modal('hide'); 
+                    cargarDatos(); 
+                    showToast(res.message || 'Operación exitosa.', 'success');
+                } else { 
+                    showToast(res.message || 'Ocurrió un error.', 'error');
+                } 
+            },
+            error: (xhr) => showToast(xhr.responseJSON?.message || 'Error de conexión.', 'error')
         });
     });
 
@@ -197,7 +211,15 @@ $(document).ready(function() {
         if (!confirm('¿Está seguro que desea desactivar este registro? No se eliminará permanentemente.')) return;
         $.ajax({
             url: apiEndpoint, method: 'DELETE', contentType: 'application/json', data: JSON.stringify({ id_sindicato: $(this).data('id') }),
-            success: (res) => { if (res.success) { alert('✅ ' + res.message); cargarDatos(); } else { alert('Error: ' + res.message); } }
+            success: (res) => { 
+                if (res.success) { 
+                    showToast(res.message, 'success'); 
+                    cargarDatos(); 
+                } else { 
+                    showToast(res.message, 'error'); 
+                } 
+            },
+            error: (xhr) => showToast(xhr.responseJSON?.message || 'Error de conexión.', 'error')
         });
     });
 

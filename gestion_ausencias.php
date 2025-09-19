@@ -151,9 +151,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <?php include 'partials/theme_switcher.php'; ?>
 
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js"></script>
 <script>
 $(document).ready(function() {
     function escapeHtml(text) {
@@ -313,7 +316,7 @@ $(document).ready(function() {
         const fechaHasta = $('#novedad-fecha-hasta').val();
         
         if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
-            alert('La fecha "desde" no puede ser mayor que la fecha "hasta"');
+            showToast('La fecha "desde" no puede ser mayor que la fecha "hasta".', 'warning');
             return;
         }
         
@@ -345,27 +348,14 @@ $(document).ready(function() {
                 if (res.success) {
                     modal.hide();
                     cargarParteDiario();
-                    
-                    // Mostrar mensaje de éxito
-                    const alertHtml = `
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="bi bi-check-circle"></i> ${res.message}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    `;
-                    $('.container-fluid').prepend(alertHtml);
-                    
-                    // Auto-remover después de 5 segundos
-                    setTimeout(() => {
-                        $('.alert-success').fadeOut();
-                    }, 5000);
+                    showToast(res.message || 'Novedad registrada.', 'success');
                 } else {
-                    alert('Error: ' + res.message);
+                    showToast(res.message || 'Ocurrió un error.', 'error');
                 }
             },
             error: function(xhr) {
                 const mensaje = xhr.responseJSON?.message || 'Error de conexión';
-                alert('Error: ' + mensaje);
+                showToast(mensaje, 'error');
             },
             complete: function() {
                 // Restaurar botón

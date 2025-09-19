@@ -20,6 +20,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <?php include('partials/navbar.php'); ?>
 
+<!-- Contenedor para notificaciones Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <div class="container main-container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Usuarios del Sistema</h2>
@@ -105,6 +108,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js"></script>
 <script>
 $(document).ready(function() {
     cargarUsuarios();
@@ -135,10 +139,13 @@ $(document).ready(function() {
                 if (response.success) {
                     $('#modalUsuario').modal('hide');
                     cargarUsuarios();
-                    alert('✅ ' + response.message);
+                    showToast(response.message || 'Operación exitosa.', 'success');
                 } else {
-                    alert('❌ Error: ' + response.message);
+                    showToast(response.message || 'Ocurrió un error.', 'error');
                 }
+            },
+            error: function(xhr) {
+                showToast(xhr.responseJSON?.message || 'Error de conexión.', 'error');
             }
         });
     });

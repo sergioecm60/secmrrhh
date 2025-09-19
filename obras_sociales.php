@@ -1,9 +1,10 @@
 <?php
-session_start();
+require_once 'config/session.php';
 if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
     header("Location: dashboard.php");
     exit;
 }
+$currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -16,6 +17,10 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
 </head>
 <body>
 <?php include('partials/navbar.php'); ?>
+
+<!-- Contenedor para notificaciones Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <div class="container main-container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-heart-pulse"></i> Obras Sociales</h2>
@@ -104,6 +109,7 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js"></script>
 <script>
 $(document).ready(function() {
     const apiEndpoint = 'api/obras_sociales.php';
@@ -165,9 +171,10 @@ $(document).ready(function() {
             success: (res) => { 
                 if (res.success) { 
                     modal.modal('hide'); 
-                    cargarDatos(); 
+                    cargarDatos();
+                    showToast(res.message || 'Operación exitosa.', 'success');
                 } else { 
-                    alert('Error: ' + res.message); 
+                    showToast(res.message || 'Ocurrió un error.', 'error');
                 } 
             }
         });
@@ -196,12 +203,12 @@ $(document).ready(function() {
         if (!confirm('¿Está seguro que desea DESACTIVAR esta Obra Social? No se eliminará permanentemente y solo es posible si no tiene empleados activos asignados.')) return;
         $.ajax({
             url: apiEndpoint, method: 'DELETE', contentType: 'application/json', data: JSON.stringify({ id_obra_social: $(this).data('id') }),
-            success: (res) => { 
-                if (res.success) { 
-                    alert('✅ ' + res.message);
-                    cargarDatos(); 
-                } else { 
-                    alert('Error: ' + res.message); 
+            success: (res) => {
+                if (res.success) {
+                    showToast(res.message, 'success');
+                    cargarDatos();
+                } else {
+                    showToast(res.message, 'error');
                 } 
             }
         });

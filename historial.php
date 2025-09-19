@@ -131,9 +131,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <?php include 'partials/theme_switcher.php'; ?>
 
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js"></script>
 <script>
 $(document).ready(function() {
     const idEmpleado = <?= $id_empleado ?>;
@@ -181,7 +184,7 @@ $(document).ready(function() {
         };
 
         if (!data.tipo || !data.descripcion) {
-            alert('❌ Tipo y descripción son obligatorios');
+            showToast('Tipo y descripción son obligatorios.', 'warning');
             return;
         }
 
@@ -190,8 +193,16 @@ $(document).ready(function() {
             method: data.id_historial ? 'PUT' : 'POST',
             contentType: 'application/json',
             data: JSON.stringify(data),
-            success: (res) => { if (res.success) { $('#modalHistorial').modal('hide'); cargarHistorial(); } else { alert('❌ Error: ' + res.message); } },
-            error: () => alert('❌ Error en la solicitud')
+            success: (res) => { 
+                if (res.success) { 
+                    $('#modalHistorial').modal('hide'); 
+                    cargarHistorial(); 
+                    showToast(res.message || 'Registro guardado.', 'success');
+                } else { 
+                    showToast(res.message || 'Ocurrió un error.', 'error');
+                } 
+            },
+            error: (xhr) => showToast(xhr.responseJSON?.message || 'Error de conexión.', 'error')
         });
     });
 
@@ -211,8 +222,15 @@ $(document).ready(function() {
         if (!confirm('¿Está seguro de eliminar este registro?')) return;
         $.ajax({
             url: 'api/historial.php', method: 'DELETE', contentType: 'application/json', data: JSON.stringify({ id_historial: $(this).data('id') }),
-            success: (res) => { if (res.success) { cargarHistorial(); } else { alert('❌ Error: ' + res.message); } },
-            error: () => alert('❌ Error en la solicitud')
+            success: (res) => { 
+                if (res.success) { 
+                    cargarHistorial(); 
+                    showToast(res.message || 'Registro eliminado.', 'success');
+                } else { 
+                    showToast(res.message || 'Ocurrió un error.', 'error');
+                } 
+            },
+            error: (xhr) => showToast(xhr.responseJSON?.message || 'Error de conexión.', 'error')
         });
     });
 

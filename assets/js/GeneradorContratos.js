@@ -142,7 +142,7 @@ const GeneradorContratos = () => {
       <div className="text-center mb-5">
         <h1 className="h2 fw-bold mb-2">CONTRATO DE TRABAJO</h1>
         <h2 className="h4 fw-semibold">
-          {tiposContrato[contrato.tipoContrato]?.nombre.toUpperCase()}
+          {tiposContrato[contrato.tipoContrato] && tiposContrato[contrato.tipoContrato].nombre.toUpperCase()}
         </h2>
       </div>
 
@@ -224,10 +224,10 @@ const GeneradorContratos = () => {
           <div>
             <h3 className="fw-bold fs-6 mb-2">SEXTA - CLÁUSULAS ESPECIALES:</h3>
             {contrato.clausulasEspeciales.map((clausulaId, index) => {
-              const clausula = clausulasDisponibles.find(c => c.id === clausulaId);
+              const clausula = clausulasDisponibles.find(c => c.id === clausulaId) || {};
               return (
                 <p key={clausulaId} className="text-justify mb-2">
-                  <strong>{index + 1}.</strong> {clausula?.descripcion}
+                  <strong>{index + 1}.</strong> {clausula.descripcion}
                 </p>
               );
             })}
@@ -452,7 +452,7 @@ const GeneradorContratos = () => {
                 </div>
               </div>
               <div className="col-md-6"><label className="form-label">Fecha de Inicio *</label><input type="date" value={contrato.fechaInicio} onChange={(e) => setContrato({...contrato, fechaInicio: e.target.value})} className="form-control" /></div>
-              {tiposContrato[contrato.tipoContrato]?.requiereFin && (<div className="col-md-6"><label className="form-label">Fecha de Fin *</label><input type="date" value={contrato.fechaFin} onChange={(e) => setContrato({...contrato, fechaFin: e.target.value})} className="form-control" /></div>)}
+              {tiposContrato[contrato.tipoContrato] && tiposContrato[contrato.tipoContrato].requiereFin && (<div className="col-md-6"><label className="form-label">Fecha de Fin *</label><input type="date" value={contrato.fechaFin} onChange={(e) => setContrato({...contrato, fechaFin: e.target.value})} className="form-control" /></div>)}
               <div className="col-md-6"><label className="form-label">Puesto de Trabajo *</label><input type="text" value={contrato.puesto} onChange={(e) => setContrato({...contrato, puesto: e.target.value})} className="form-control" placeholder="Ej: Desarrollador Senior" /></div>
               <div className="col-md-6"><label className="form-label">Categoría</label><input type="text" value={contrato.categoria} onChange={(e) => setContrato({...contrato, categoria: e.target.value})} className="form-control" placeholder="Ej: Profesional" /></div>
               <div className="col-md-6">
