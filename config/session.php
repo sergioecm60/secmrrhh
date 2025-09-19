@@ -1,6 +1,12 @@
 <?php
 // c:\laragon\www\secmrrhh\config\session.php
 
+// Define una ruta de guardado de sesión personalizada dentro del proyecto.
+// Esto asegura que las sesiones se guarden en un lugar con los permisos correctos
+// y hace que la configuración sea explícita y no dependa de php.ini.
+$session_path = realpath(__DIR__ . '/../sessions');
+session_save_path($session_path);
+
 // Evita que el ID de sesión se propague por la URL.
 ini_set('session.use_only_cookies', 1);
 ini_set('session.use_trans_sid', 0);
@@ -17,5 +23,6 @@ session_set_cookie_params([
 
 // Iniciar la sesión solo si no hay una activa.
 if (session_status() === PHP_SESSION_NONE) {
+    // Esta es la línea que genera el error si los permisos en $session_path son incorrectos.
     session_start();
 }
