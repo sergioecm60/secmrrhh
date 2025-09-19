@@ -65,16 +65,20 @@ try {
             'nombre_completo' => $user['nombre_completo'],
             'rol' => $user['rol'] ?? 'usuario', // Valor por defecto si es NULL
             'estado' => $user['estado'] ?? 'activo', // Valor por defecto si es NULL
-            'id_sucursal' => $user['id_sucursal']
+            'id_sucursal' => $user['id_sucursal'] ?? null // Asegurarse de que no falle si la columna no existe o es null
         ];
 
         // Regenerar token CSRF después de un inicio de sesión exitoso para prevenir ataques de fijación de sesión.
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-        // Actualizar último login y registrar auditoría
+        // Actualizar último login
         $update_stmt = $pdo->prepare("UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP WHERE id_usuario = ?");
         $update_stmt->execute([$user['id_usuario']]);
-        registrarAuditoria($pdo, 'LOGIN', 'usuarios', $user['id_usuario'], 'Inicio de sesión exitoso.');
+
+        // Registrar auditoría solo si la función existe (para evitar errores fatales si el archivo no está incluido)
+        if (function_exists('registrarAuditoria')) {
+            registrarAuditoria($pdo, 'LOGIN', 'usuarios', $user['id_usuario'], 'Inicio de sesión exitoso.');
+        }
 
         echo json_encode(['success' => true, 'redirect' => 'dashboard.php']);
     } else {

@@ -67,9 +67,12 @@ CREATE TABLE `usuarios` (
   `nombre_completo` varchar(100) NOT NULL,
   `rol` enum('admin','usuario') NOT NULL DEFAULT 'usuario',
   `estado` enum('activo','inactivo') NOT NULL DEFAULT 'activo',
+  `id_sucursal` int(11) DEFAULT NULL,
   `ultimo_login` datetime DEFAULT NULL,
   PRIMARY KEY (`id_usuario`),
-  UNIQUE KEY `username` (`username`)
+  UNIQUE KEY `username` (`username`),
+  KEY `id_sucursal` (`id_sucursal`),
+  CONSTRAINT `usuarios_ibfk_1` FOREIGN KEY (`id_sucursal`) REFERENCES `sucursales` (`id_sucursal`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tabla de Empresas
