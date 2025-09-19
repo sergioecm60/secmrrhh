@@ -3,6 +3,7 @@ require_once '../config/session.php';
 
 header('Content-Type: application/json; charset=utf-8');
 require_once '../config/db.php';
+require_once '../config/functions.php';
 
 // Seguridad: Solo los administradores pueden acceder a este endpoint.
 if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {

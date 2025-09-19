@@ -2,6 +2,7 @@
 require_once '../config/session.php';
 header('Content-Type: application/json; charset=utf-8');
 require_once '../config/db.php';
+require_once '../config/functions.php';
 
 try {
     if (!isset($_SESSION['user'])) {
@@ -33,9 +34,7 @@ try {
         $stmt->execute([$data['nombre'], $data['descripcion'] ?? null]);
         $lastId = $pdo->lastInsertId();
         
-        if (function_exists('registrarAuditoria')) {
-            registrarAuditoria($pdo, 'INSERT', 'modalidades_contrato', $lastId, 'Nueva modalidad de contrato: ' . $data['nombre']);
-        }
+        registrarAuditoria($pdo, 'INSERT', 'modalidades_contrato', $lastId, 'Nueva modalidad de contrato: ' . $data['nombre']);
         
         echo json_encode(['success' => true, 'message' => 'Modalidad de contrato creada.']);
 
@@ -47,9 +46,7 @@ try {
         $stmt = $pdo->prepare("UPDATE modalidades_contrato SET nombre = ?, descripcion = ?, activo = ? WHERE id_modalidad = ?");
         $stmt->execute([$data['nombre'], $data['descripcion'] ?? null, $data['activo'] ?? 1, $data['id_modalidad']]);
         
-        if (function_exists('registrarAuditoria')) {
-            registrarAuditoria($pdo, 'UPDATE', 'modalidades_contrato', $data['id_modalidad'], 'Modalidad de contrato actualizada: ' . $data['nombre']);
-        }
+        registrarAuditoria($pdo, 'UPDATE', 'modalidades_contrato', $data['id_modalidad'], 'Modalidad de contrato actualizada: ' . $data['nombre']);
         
         echo json_encode(['success' => true, 'message' => 'Modalidad de contrato actualizada.']);
 
@@ -67,6 +64,8 @@ try {
 
         $stmt = $pdo->prepare("DELETE FROM modalidades_contrato WHERE id_modalidad = ?");
         $stmt->execute([$id_modalidad]);
+
+        registrarAuditoria($pdo, 'DELETE', 'modalidades_contrato', $id_modalidad, 'Eliminada modalidad de contrato ID: ' . $id_modalidad);
         echo json_encode(['success' => true, 'message' => 'Modalidad de contrato eliminada.']);
 
     } else {

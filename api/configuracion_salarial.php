@@ -2,6 +2,7 @@
 require_once '../config/session.php';
 header('Content-Type: application/json; charset=utf-8');
 require_once '../config/db.php';
+require_once '../config/functions.php';
 
 try {
     if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
@@ -38,7 +39,7 @@ try {
             empty($data['codigo_recibo']) ? null : $data['codigo_recibo']
         ]);
         
-        // registrarAuditoria($pdo, 'INSERT', $tableName, $pdo->lastInsertId(), "Nuevo concepto: {$data['descripcion']}");
+        registrarAuditoria($pdo, 'INSERT', $tableName, $pdo->lastInsertId(), "Nuevo concepto: {$data['descripcion']}");
         echo json_encode(['success' => true, 'message' => 'Concepto creado correctamente.']);
 
     } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
@@ -60,7 +61,7 @@ try {
             $data[$idColumn]
         ]);
 
-        // registrarAuditoria($pdo, 'UPDATE', $tableName, $data[$idColumn], "Actualizado concepto: {$data['descripcion']}");
+        registrarAuditoria($pdo, 'UPDATE', 'conceptos_salariales', $data[$idColumn], "Actualizado concepto: {$data['descripcion']}");
         echo json_encode(['success' => true, 'message' => 'Concepto actualizado correctamente.']);
 
     } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
@@ -72,7 +73,7 @@ try {
         $stmt = $pdo->prepare("DELETE FROM $tableName WHERE $idColumn = ?");
         $stmt->execute([$data[$idColumn]]);
 
-        // registrarAuditoria($pdo, 'DELETE', $tableName, $data[$idColumn], "Eliminado concepto ID: {$data[$idColumn]}");
+        registrarAuditoria($pdo, 'DELETE', 'conceptos_salariales', $data[$idColumn], "Eliminado concepto ID: {$data[$idColumn]}");
         echo json_encode(['success' => true, 'message' => 'Concepto eliminado.']);
     }
 

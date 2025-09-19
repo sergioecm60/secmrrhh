@@ -2,6 +2,11 @@
 // Este archivo define la barra de navegación principal de la aplicación.
 // Se incluye en la mayoría de las páginas para proporcionar una navegación consistente.
 // Utiliza la variable $currentPage (definida en cada página) para resaltar el enlace activo.
+
+// Se inicializa $currentPage para evitar warnings en páginas que no la definen (ej. index.php).
+if (!isset($currentPage)) {
+    $currentPage = '';
+}
 ?>
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm sticky-top">
     <div class="container">

@@ -3,6 +3,7 @@ require_once '../config/session.php';
 
 header('Content-Type: application/json; charset=utf-8');
 require_once '../config/db.php';
+require_once '../config/functions.php';
 
 try {
     if (!isset($_SESSION['user'])) {
@@ -16,7 +17,7 @@ try {
 
         $stmt = $pdo->prepare("
             SELECT d.*, dt.nombre as tipo_documento_nombre
-            FROM documentacion d
+            FROM documentacion_empleado d
             JOIN documento_tipos dt ON d.id_tipo_documento = dt.id_tipo_documento
             WHERE d.id_personal = ?
             ORDER BY d.fecha_subida DESC
@@ -80,11 +81,11 @@ try {
         }
 
         // Guardar en la base de datos
-        $sql = "INSERT INTO documentacion (id_personal, id_tipo_documento, nombre_archivo_original, ruta_archivo, observaciones, fecha_vencimiento) VALUES (?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO documentacion_empleado (id_personal, id_tipo_documento, nombre_archivo_original, ruta_archivo, observaciones, fecha_vencimiento) VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$id_personal, $id_tipo_documento, $nombre_archivo_original, $ruta_relativa_db, $observaciones, empty($fecha_vencimiento) ? null : $fecha_vencimiento]);
         
-        // registrarAuditoria($pdo, 'UPLOAD', 'documentacion', $pdo->lastInsertId(), "Subido documento para empleado ID {$id_personal}");
+        registrarAuditoria($pdo, 'UPLOAD', 'documentacion_empleado', $pdo->lastInsertId(), "Subido documento para empleado ID {$id_personal}");
         echo json_encode(['success' => true, 'message' => 'Documento subido correctamente.']);
 
     } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
@@ -95,13 +96,13 @@ try {
         if (!$id_documento) throw new Exception("ID de documento no proporcionado.", 400);
 
         // 1. Obtener la ruta del archivo para poder borrarlo
-        $stmt_get = $pdo->prepare("SELECT ruta_archivo FROM documentacion WHERE id_documento = ?");
+        $stmt_get = $pdo->prepare("SELECT ruta_archivo FROM documentacion_empleado WHERE id_documento = ?");
         $stmt_get->execute([$id_documento]);
         $documento = $stmt_get->fetch(PDO::FETCH_ASSOC);
 
         if ($documento) {
             // 2. Eliminar el registro de la base de datos
-            $stmt_del = $pdo->prepare("DELETE FROM documentacion WHERE id_documento = ?");
+            $stmt_del = $pdo->prepare("DELETE FROM documentacion_empleado WHERE id_documento = ?");
             $stmt_del->execute([$id_documento]);
 
             // 3. Eliminar el archivo físico del servidor
@@ -110,7 +111,7 @@ try {
                 unlink($ruta_fisica);
             }
             
-            // registrarAuditoria($pdo, 'DELETE', 'documentacion', $id_documento, "Eliminado documento ID {$id_documento}");
+            registrarAuditoria($pdo, 'DELETE', 'documentacion_empleado', $id_documento, "Eliminado documento ID {$id_documento}");
             echo json_encode(['success' => true, 'message' => 'Documento eliminado correctamente.']);
         } else {
             throw new Exception("Documento no encontrado.", 404);

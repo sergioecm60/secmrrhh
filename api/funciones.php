@@ -33,7 +33,7 @@ try {
             $data['codigo_afip_puesto'] ?? null
         ]);
         $lastId = $pdo->lastInsertId();
-        // registrarAuditoria($pdo, 'INSERT', $tableName, $lastId, 'Creación de función: ' . $data['denominacion']);
+        registrarAuditoria($pdo, 'INSERT', $tableName, $lastId, 'Creación de función: ' . $data['denominacion']);
         echo json_encode(['success' => true, 'message' => 'Función creada correctamente.']);
 
     } elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
@@ -49,7 +49,7 @@ try {
             $data['codigo_afip_puesto'] ?? null,
             $data[$idColumn]
         ]);
-        // registrarAuditoria($pdo, 'UPDATE', $tableName, $data[$idColumn], 'Actualización de función: ' . $data['denominacion']);
+        registrarAuditoria($pdo, 'UPDATE', $tableName, $data[$idColumn], 'Actualización de función: ' . $data['denominacion']);
         echo json_encode(['success' => true, 'message' => 'Función actualizada correctamente.']);
 
     } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
@@ -69,7 +69,7 @@ try {
         $stmt->execute([$id_to_delete]);
         
         if ($stmt->rowCount() > 0) {
-            // registrarAuditoria($pdo, 'DELETE', $tableName, $id_to_delete, 'Eliminación de función ID: ' . $id_to_delete);
+            registrarAuditoria($pdo, 'DELETE', $tableName, $id_to_delete, 'Eliminación de función ID: ' . $id_to_delete);
             echo json_encode(['success' => true, 'message' => 'Función eliminada correctamente.']);
         } else {
             throw new Exception("No se encontró la función para eliminar.", 404);
