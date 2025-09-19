@@ -1,15 +1,27 @@
+/**
+ * Script para la Calculadora de CUIT.
+ * Contiene la lógica para validar el DNI y calcular el dígito verificador
+ * según el algoritmo de la AFIP.
+ * Depende de jQuery para la manipulación del DOM y de utils.js para notificaciones.
+ */
 $(document).ready(function() {
     const $dniInput = $('#dni');
     const $tipoPersonaSelect = $('#tipo-persona');
     const $cuitResultado = $('#cuit-resultado');
     const $resultadoContainer = $('#resultado-cuit-container');
     const $dniError = $('#dni-error');
+    const $btnCopiar = $('#btn-copiar');
     const $btnLimpiar = $('#btn-limpiar');
 
-    // Función para calcular el dígito verificador del CUIT
+    /**
+     * Calcula el dígito verificador de un CUIT/CUIL.
+     * @param {string} prefijo - El prefijo de 2 dígitos (20, 27, 30, etc.).
+     * @param {string} dni - El número de DNI de 8 dígitos.
+     * @returns {{prefijo: string, digito: number}} Un objeto con el prefijo final y el dígito verificador.
+     */
     const calcularDigitoVerificador = (prefijo, dni) => {
         const multiplicadores = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-        // Asegurarse que el DNI tenga 8 dígitos, rellenando con ceros a la izquierda
+        // Asegurarse de que el DNI tenga 8 dígitos, rellenando con ceros a la izquierda
         const numeroCompleto = prefijo + dni.padStart(8, '0');
         
         let suma = 0;
@@ -35,18 +47,26 @@ $(document).ready(function() {
         return { prefijo, digito: digitoVerificador };
     };
 
-    // Función para formatear el CUIT con guiones
+    /**
+     * Formatea un número de CUIT de 11 dígitos con guiones.
+     * @param {string} cuitSinFormato - El CUIT sin guiones.
+     * @returns {string} El CUIT formateado (ej: "20-12345678-9").
+     */
     const formatearCuit = (cuitSinFormato) => {
         if (cuitSinFormato.length === 11) {
             return `${cuitSinFormato.substring(0, 2)}-${cuitSinFormato.substring(2, 10)}-${cuitSinFormato.substring(10)}`;
         }
         return cuitSinFormato;
     };
-
-    // Función para validar DNI
+    
+    /**
+     * Valida si un string es un DNI válido (7 u 8 dígitos numéricos).
+     * @param {string} dniValue - El valor del input de DNI.
+     * @returns {boolean} True si es válido, false en caso contrario.
+     */
     const validarDni = (dniValue) => {
         const numero = dniValue.replace(/\D/g, '');
-        return numero.length >= 7 && numero.length <= 8 && parseInt(numero) > 0;
+        return numero.length >= 7 && numero.length <= 8 && parseInt(numero, 10) > 0;
     };
 
     // Función principal para calcular y mostrar
@@ -62,7 +82,7 @@ $(document).ready(function() {
             const resultado = calcularDigitoVerificador(tipoPersona, dniLimpio);
             const cuitCompleto = resultado.prefijo + dniLimpio.padStart(8, '0') + resultado.digito;
             
-            $cuitResultado.text(formatearCuit(cuitCompleto));
+            $cuitResultado.val(formatearCuit(cuitCompleto));
             $resultadoContainer.slideDown();
 
         } else if (dni) {
@@ -74,11 +94,11 @@ $(document).ready(function() {
             $dniInput.removeClass('is-invalid');
             $dniError.text('');
             $resultadoContainer.slideUp();
-            $cuitResultado.text('');
+            $cuitResultado.val('');
         }
     };
 
-    // Eventos
+    // --- Eventos ---
     $dniInput.on('keyup', function(e) {
         // Solo permitir números
         const value = e.target.value.replace(/\D/g, '');
@@ -88,11 +108,24 @@ $(document).ready(function() {
 
     $tipoPersonaSelect.on('change', calcularYMostrarCuit);
 
+    $btnCopiar.on('click', function() {
+        const cuit = $cuitResultado.val();
+        if (cuit && navigator.clipboard) {
+            navigator.clipboard.writeText(cuit).then(() => {
+                showToast('CUIT copiado al portapapeles', 'success');
+            }).catch(err => {
+                showToast('No se pudo copiar el CUIT', 'error');
+                console.error('Error al copiar:', err);
+            });
+        }
+    });
+
     $btnLimpiar.on('click', function() {
         $dniInput.val('').removeClass('is-invalid');
         $dniError.text('');
         $resultadoContainer.slideUp();
-        $cuitResultado.text('');
+        $cuitResultado.val('');
         $tipoPersonaSelect.val('20');
+        $dniInput.focus();
     });
 });

@@ -17,6 +17,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 </head>
 <body>
 <?php include('partials/navbar.php'); ?>
+
+<!-- Contenedor para notificaciones Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <div class="container main-container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-bank"></i> Bancos</h2>
@@ -110,131 +114,169 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js?v=<?= filemtime('assets/js/utils.js') ?>"></script>
 <script>
+/**
+ * Script para la gestión de Bancos (CRUD).
+ * Utiliza jQuery y Bootstrap para la interfaz.
+ * Depende de 'utils.js' para notificaciones (showToast) y escape de HTML.
+ */
 $(document).ready(function() {
     const apiEndpoint = 'api/bancos.php';
-    const modal = $('#modalBanco');
+    const modalElement = document.getElementById('modalBanco');
+    const modal = new bootstrap.Modal(modalElement);
 
+    /**
+     * Carga la lista de bancos desde la API y la renderiza en la tabla.
+     */
     function cargarDatos() {
         $.get(apiEndpoint, function(res) {
             let html = '';
             if (res.success) {
                 res.data.forEach(item => {
                     const allData = Object.keys(item).map(key => `data-${key}="${escapeHtml(item[key])}"`).join(' ');
-                    const estadoBadge = item.activo == 1 
-                        ? '<span class="badge bg-success">Activo</span>' 
+                    const estadoBadge = item.activo == 1
+                        ? '<span class="badge bg-success">Activo</span>'
                         : '<span class="badge bg-danger">Inactivo</span>';
-                    
+
                     let actionButtons = '';
                     if (item.activo == 1) {
                         actionButtons = `
-                            <button class="btn btn-sm btn-warning edit-item" ${allData}><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-danger delete-item" data-id="${item.id_banco}"><i class="bi bi-trash"></i></button>
+                            <button class="btn btn-sm btn-warning edit-item" ${allData} title="Editar"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-danger delete-item" data-id="${item.id_banco}" title="Desactivar"><i class="bi bi-trash"></i></button>
                         `;
                     } else {
                         actionButtons = `
-                            <button class="btn btn-sm btn-success reactivate-item" data-id="${item.id_banco}"><i class="bi bi-arrow-clockwise"></i></button>
+                            <button class="btn btn-sm btn-success reactivate-item" data-id="${item.id_banco}" title="Reactivar"><i class="bi bi-arrow-clockwise"></i></button>
                         `;
                     }
 
                     html += `<tr>
                         <td>${item.id_banco}</td>
-                        <td>${item.nombre}</td>
+                        <td>${escapeHtml(item.nombre)}</td>
                         <td>${item.cuit || '-'}</td>
-                        <td>${item.direccion || '-'}</td>
+                        <td>${escapeHtml(item.direccion) || '-'}</td>
                         <td>${item.telefono || '-'}</td>
-                        <td>${item.email || '-'}</td>
-                        <td>${item.responsable_contacto || '-'}</td>
+                        <td>${escapeHtml(item.email) || '-'}</td>
+                        <td>${escapeHtml(item.responsable_contacto) || '-'}</td>
                         <td>${estadoBadge}</td>
-                        <td class="d-flex gap-1">
-                            ${actionButtons}
-                        </td>
+                        <td class="d-flex gap-1">${actionButtons}</td>
                     </tr>`;
                 });
             }
             $('#data-list').html(html || '<tr><td colspan="9" class="text-center">No hay datos</td></tr>');
+        }).fail(function() {
+            $('#data-list').html('<tr><td colspan="9" class="text-center text-danger">Error al cargar los datos.</td></tr>');
+            showToast('Error de conexión al intentar cargar los bancos.', 'error');
         });
     }
 
-    function escapeHtml(text) {
-        if (text === null || typeof text === 'undefined') return '';
-        return String(text).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
-    }
-
+    /**
+     * Maneja el evento de clic en el botón 'Guardar' del modal.
+     * Envía los datos para crear o actualizar un banco.
+     */
     $('#btnGuardar').click(function() {
         const nombre = $('#data-nombre').val().trim();
         if (!nombre) {
-            alert('El campo "Nombre" es obligatorio.');
+            showToast('El campo "Nombre" es obligatorio.', 'warning');
             $('#data-nombre').focus();
             return;
         }
 
         const data = {
-            nombre: $('#data-nombre').val(),
-            cuit: $('#data-cuit').val(),
-            direccion: $('#data-direccion').val(),
-            telefono: $('#data-telefono').val(),
-            email: $('#data-email').val(),
-            codigo_sucursal: $('#data-codigo_sucursal').val(),
-            codigo_bcra: $('#data-codigo_bcra').val(),
-            responsable_contacto: $('#data-responsable_contacto').val(),
-            horarios_atencion: $('#data-horarios_atencion').val(),
+            nombre: nombre,
+            cuit: $('#data-cuit').val() || null,
+            direccion: $('#data-direccion').val() || null,
+            telefono: $('#data-telefono').val() || null,
+            email: $('#data-email').val() || null,
+            codigo_sucursal: $('#data-codigo_sucursal').val() || null,
+            codigo_bcra: $('#data-codigo_bcra').val() || null,
+            responsable_contacto: $('#data-responsable_contacto').val() || null,
+            horarios_atencion: $('#data-horarios_atencion').val() || null,
         };
         const id = $('#data-id').val();
         if (id) data.id_banco = id;
         if (id) data.activo = $('#data-activo').is(':checked') ? 1 : 0;
 
+        const method = id ? 'PUT' : 'POST';
+
         $.ajax({
             url: apiEndpoint,
-            method: id ? 'PUT' : 'POST',
+            method: method,
             contentType: 'application/json',
             data: JSON.stringify(data),
-            success: (res) => { if (res.success) { modal.modal('hide'); cargarDatos(); } else { alert('Error: ' + res.message); } },
-            error: (xhr) => alert('Error: ' + (xhr.responseJSON?.message || 'Error de conexión'))
+            success: function(res) {
+                if (res.success) {
+                    modal.hide();
+                    cargarDatos();
+                    showToast(res.message || 'Operación exitosa.', 'success');
+                } else {
+                    showToast(res.message || 'Ocurrió un error.', 'error');
+                }
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON?.message || 'Error de conexión o del servidor.';
+                showToast(errorMsg, 'error');
+            }
         });
     });
 
+    /**
+     * Maneja el evento de clic en el botón 'Editar'.
+     * Rellena el modal con los datos del banco seleccionado.
+     */
     $(document).on('click', '.edit-item', function() {
         const itemData = $(this).data();
-        modal.find('.modal-title').text('Editar Banco');
-        $('#data-id').val(itemData.id_banco);
-        $('#data-nombre').val(itemData.nombre);
-        $('#data-cuit').val(itemData.cuit);
-        $('#data-direccion').val(itemData.direccion);
-        $('#data-telefono').val(itemData.telefono);
-        $('#data-email').val(itemData.email);
-        $('#data-codigo_sucursal').val(itemData.codigo_sucursal);
-        $('#data-codigo_bcra').val(itemData.codigo_bcra);
-        $('#data-responsable_contacto').val(itemData.responsable_contacto);
-        $('#data-horarios_atencion').val(itemData.horarios_atencion);
+        modalElement.querySelector('.modal-title').textContent = 'Editar Banco';
+        
+        // Rellenar formulario automáticamente
+        Object.keys(itemData).forEach(key => {
+            const input = document.getElementById(`data-${key.replace(/_/g, '-')}`);
+            if (input) {
+                input.value = itemData[key] === 'null' ? '' : itemData[key];
+            }
+        });
 
         $('#data-activo').prop('checked', itemData.activo == 1);
         $('#activo-switch-container').show();
-        modal.modal('show');
+        modal.show();
     });
 
+    /**
+     * Maneja el evento de clic en el botón 'Desactivar'.
+     */
     $(document).on('click', '.delete-item', function() {
         if (!confirm('¿Está seguro que desea desactivar este registro? No se eliminará permanentemente.')) return;
         $.ajax({
             url: apiEndpoint, method: 'DELETE', contentType: 'application/json', data: JSON.stringify({ id_banco: $(this).data('id') }),
-            success: (res) => { if (res.success) { alert('✅ ' + res.message); cargarDatos(); } else { alert('Error: ' + res.message); } }
+            success: (res) => { if (res.success) { showToast(res.message, 'success'); cargarDatos(); } else { showToast(res.message, 'error'); } },
+            error: (xhr) => showToast(xhr.responseJSON?.message || 'Error de conexión.', 'error')
         });
     });
 
+    /**
+     * Maneja el evento de clic en el botón 'Reactivar'.
+     */
     $(document).on('click', '.reactivate-item', function() {
         if (!confirm('¿Está seguro que desea reactivar este registro?')) return;
         $.ajax({
             url: apiEndpoint, method: 'PATCH', contentType: 'application/json', data: JSON.stringify({ id_banco: $(this).data('id') }),
-            success: (res) => { if (res.success) { alert('✅ ' + res.message); cargarDatos(); } else { alert('Error: ' + res.message); } }
+            success: (res) => { if (res.success) { showToast(res.message, 'success'); cargarDatos(); } else { showToast(res.message, 'error'); } },
+            error: (xhr) => showToast(xhr.responseJSON?.message || 'Error de conexión.', 'error')
         });
     });
 
-    modal.on('hidden.bs.modal', () => { 
-        modal.find('form')[0].reset(); 
+    /**
+     * Limpia el formulario del modal cuando se cierra.
+     */
+    modalElement.addEventListener('hidden.bs.modal', () => {
+        $('#form-data')[0].reset();
         $('#data-id').val(''); 
-        modal.find('.modal-title').text('Nuevo Banco'); 
+        modalElement.querySelector('.modal-title').textContent = 'Nuevo Banco';
         $('#activo-switch-container').hide();
     });
+
+    // Carga inicial de datos
     cargarDatos();
 });
 </script>

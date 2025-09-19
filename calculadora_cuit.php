@@ -17,6 +17,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 </head>
 <body>
 <?php include('partials/navbar.php'); ?>
+
+<!-- Contenedor para notificaciones Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <div class="container main-container">
     <div class="row justify-content-center">
         <div class="col-lg-7 col-md-9">
@@ -48,8 +52,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <div id="resultado-cuit-container" class="mt-4" style="display: none;">
                         <div class="alert alert-success p-3">
                             <label class="form-label text-success-emphasis">CUIT calculado:</label>
-                            <div class="bg-white border border-success-subtle rounded p-3 text-center">
-                                <strong id="cuit-resultado" class="font-monospace" style="font-size: 1.75rem;"></strong>
+                            <div class="input-group">
+                                <input type="text" id="cuit-resultado" class="form-control form-control-lg bg-white font-monospace text-center" style="font-size: 1.75rem;" readonly>
+                                <button class="btn btn-outline-success" type="button" id="btn-copiar" title="Copiar CUIT">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -78,6 +85,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js?v=<?= filemtime('assets/js/utils.js') ?>"></script>
 <script src="assets/js/calculadora-cuit.js"></script>
 </body>
 </html>

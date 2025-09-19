@@ -18,6 +18,8 @@ USE `secmrrhh`;
 
 SET FOREIGN_KEY_CHECKS=0;
 
+DROP TABLE IF EXISTS `vacaciones_calculos`;
+DROP TABLE IF EXISTS `vacaciones_balance`;
 DROP TABLE IF EXISTS `ausencias`;
 DROP TABLE IF EXISTS `novedades`;
 DROP TABLE IF EXISTS `documentacion_empleado`;
@@ -28,7 +30,7 @@ DROP TABLE IF EXISTS `notificaciones`;
 DROP TABLE IF EXISTS `personal`;
 DROP TABLE IF EXISTS `categorias_convenio`;
 DROP TABLE IF EXISTS `convenios`;
-DROP TABLE IF EXISTS `sindicato`;
+DROP TABLE IF EXISTS `sindicatos`;
 DROP TABLE IF EXISTS `obras_sociales`;
 DROP TABLE IF EXISTS `art`;
 DROP TABLE IF EXISTS `bancos`;
@@ -227,6 +229,32 @@ CREATE TABLE `ausencias` (
   PRIMARY KEY (`id_ausencia`), UNIQUE KEY `unique_ausencia_dia` (`id_personal`,`fecha`), KEY `fk_ausencia_novedad` (`id_novedad`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE `vacaciones_balance` (
+  `id_balance` int(11) NOT NULL AUTO_INCREMENT,
+  `id_personal` int(11) NOT NULL,
+  `periodo_anio` year(4) NOT NULL,
+  `dias_corresponden` int(11) NOT NULL DEFAULT 0,
+  `dias_tomados` int(11) NOT NULL DEFAULT 0,
+  `dias_pendientes` int(11) NOT NULL DEFAULT 0,
+  `fecha_calculo` date NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id_balance`), UNIQUE KEY `unique_personal_periodo` (`id_personal`,`periodo_anio`), KEY `idx_vacaciones_balance_personal` (`id_personal`), KEY `idx_vacaciones_balance_periodo` (`periodo_anio`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `vacaciones_calculos` (
+  `id_calculo` int(11) NOT NULL AUTO_INCREMENT,
+  `id_personal` int(11) NOT NULL,
+  `fecha_ingreso` date NOT NULL,
+  `fecha_calculo` date NOT NULL,
+  `antiguedad_anios` int(11) NOT NULL,
+  `dias_vacaciones` int(11) NOT NULL,
+  `periodo_anio` year(4) NOT NULL,
+  `calculado_por` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id_calculo`), KEY `idx_vacaciones_calculos_personal` (`id_personal`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `auditoria` (
   `id_auditoria` int NOT NULL AUTO_INCREMENT,
   `id_usuario` int NOT NULL,
@@ -299,7 +327,7 @@ CREATE TABLE `obras_sociales` (
   PRIMARY KEY (`id_obra_social`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish_ci;
 
-CREATE TABLE `sindicato` (
+CREATE TABLE `sindicatos` (
   `id_sindicato` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `cuit` varchar(13) COLLATE utf8mb4_general_ci DEFAULT NULL,
@@ -370,6 +398,75 @@ CREATE TABLE `conceptos_salariales` (
   PRIMARY KEY (`id_concepto`),
   KEY `fk_concepto_convenio` (`id_convenio`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish_ci;
+
+-- ---
+-- PASO 2.5: Lógica de Negocio (Procedimientos y Triggers)
+-- ---
+
+DELIMITER $$
+
+-- Procedimiento que calcula los días de vacaciones según la LCT y actualiza el balance.
+DROP PROCEDURE IF EXISTS `CalcularVacacionesLCT`$$
+CREATE PROCEDURE `CalcularVacacionesLCT`(
+    IN p_id_personal INT,
+    IN p_fecha_calculo DATE,
+    IN p_calculado_por INT,
+    OUT p_dias_corresponden INT
+)
+BEGIN
+    DECLARE v_fecha_ingreso DATE;
+    DECLARE v_antiguedad_anios INT;
+    DECLARE v_periodo_anio YEAR;
+    DECLARE v_dias_trabajados INT;
+    
+    SELECT `ingreso` INTO v_fecha_ingreso FROM `personal` WHERE `id_personal` = p_id_personal;
+    
+    SET v_antiguedad_anios = TIMESTAMPDIFF(YEAR, v_fecha_ingreso, p_fecha_calculo);
+    SET v_dias_trabajados = TIMESTAMPDIFF(DAY, v_fecha_ingreso, p_fecha_calculo);
+    SET v_periodo_anio = YEAR(p_fecha_calculo);
+    
+    -- Aplicar escala de LCT Art. 150
+    IF v_antiguedad_anios < 1 THEN
+        -- LCT: 1 día de vacaciones por cada 20 días de trabajo efectivo.
+        SET p_dias_corresponden = FLOOR(v_dias_trabajados / 20);
+    ELSEIF v_antiguedad_anios >= 1 AND v_antiguedad_anios < 5 THEN
+        SET p_dias_corresponden = 14;
+    ELSEIF v_antiguedad_anios >= 5 AND v_antiguedad_anios < 10 THEN
+        SET p_dias_corresponden = 21;
+    ELSEIF v_antiguedad_anios >= 10 AND v_antiguedad_anios < 20 THEN
+        SET p_dias_corresponden = 28;
+    ELSE
+        SET p_dias_corresponden = 35;
+    END IF;
+    
+    -- Registrar el cálculo para auditoría
+    INSERT INTO `vacaciones_calculos` 
+    (`id_personal`, `fecha_ingreso`, `fecha_calculo`, `antiguedad_anios`, `dias_vacaciones`, `periodo_anio`, `calculado_por`)
+    VALUES 
+    (p_id_personal, v_fecha_ingreso, p_fecha_calculo, v_antiguedad_anios, p_dias_corresponden, v_periodo_anio, p_calculado_por);
+    
+    -- Actualizar o insertar el balance del empleado para el período
+    INSERT INTO `vacaciones_balance` (`id_personal`, `periodo_anio`, `dias_corresponden`, `dias_pendientes`, `fecha_calculo`)
+    VALUES (p_id_personal, v_periodo_anio, p_dias_corresponden, p_dias_corresponden, p_fecha_calculo)
+    ON DUPLICATE KEY UPDATE 
+        `dias_corresponden` = VALUES(`dias_corresponden`),
+        `fecha_calculo` = VALUES(`fecha_calculo`),
+        `dias_pendientes` = VALUES(`dias_corresponden`) - `dias_tomados`;
+END$$
+
+-- Trigger que se dispara DESPUÉS de INSERTAR una novedad.
+DROP TRIGGER IF EXISTS `after_novedad_vacaciones_insert`$$
+CREATE TRIGGER `after_novedad_vacaciones_insert` AFTER INSERT ON `novedades` FOR EACH ROW BEGIN
+    DECLARE v_dias_vacaciones INT;
+    DECLARE v_periodo YEAR;
+    IF NEW.tipo = 'Vacaciones' AND NEW.estado = 'Aprobada' THEN
+        SET v_periodo = YEAR(NEW.fecha_desde);
+        SET v_dias_vacaciones = DATEDIFF(NEW.fecha_hasta, NEW.fecha_desde) + 1;
+        UPDATE `vacaciones_balance` SET `dias_tomados` = `dias_tomados` + v_dias_vacaciones, `dias_pendientes` = `dias_corresponden` - `dias_tomados` WHERE `id_personal` = NEW.id_personal AND `periodo_anio` = v_periodo;
+    END IF;
+END$$
+
+DELIMITER ;
 
 -- ---
 -- PASO 3: Carga de Datos Iniciales (Catálogos)
@@ -741,7 +838,7 @@ INSERT INTO `categorias_convenio` (`id_convenio`, `nombre`, `sueldo_basico`) VAL
 (2, 'C2 - AUXILIAR 1º', 1075311.00),
 (2, 'C3 - AUXILIAR 2º', 1065543.00);
 
-INSERT INTO `sindicato` (`nombre`, `activo`) VALUES
+INSERT INTO `sindicatos` (`nombre`, `activo`) VALUES
 ('UTHGRA (Gastronómicos)', 1),
 ('SEC (Comercio)', 1),
 ('UATRE (Rurales)', 1);
@@ -822,8 +919,11 @@ INSERT INTO `usuarios` (`username`, `password`, `nombre_completo`, `rol`, `estad
 -- ---
 
 ALTER TABLE `auditoria` ADD CONSTRAINT `auditoria_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`);
+ALTER TABLE `vacaciones_balance` ADD CONSTRAINT `fk_balance_personal` FOREIGN KEY (`id_personal`) REFERENCES `personal` (`id_personal`) ON DELETE CASCADE;
+ALTER TABLE `vacaciones_calculos` ADD CONSTRAINT `fk_calculos_personal` FOREIGN KEY (`id_personal`) REFERENCES `personal` (`id_personal`) ON DELETE CASCADE;
+ALTER TABLE `vacaciones_calculos` ADD CONSTRAINT `fk_calculos_usuario` FOREIGN KEY (`calculado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL;
 ALTER TABLE `ausencias` ADD CONSTRAINT `fk_ausencia_novedad` FOREIGN KEY (`id_novedad`) REFERENCES `novedades` (`id_novedad`) ON DELETE CASCADE;
-ALTER TABLE `convenios` ADD CONSTRAINT `fk_convenio_sindicato` FOREIGN KEY (`id_sindicato`) REFERENCES `sindicato` (`id_sindicato`) ON DELETE SET NULL;
+ALTER TABLE `convenios` ADD CONSTRAINT `fk_convenio_sindicato` FOREIGN KEY (`id_sindicato`) REFERENCES `sindicatos` (`id_sindicato`) ON DELETE SET NULL;
 ALTER TABLE `conceptos_salariales` ADD CONSTRAINT `fk_concepto_convenio` FOREIGN KEY (`id_convenio`) REFERENCES `convenios` (`id_convenio`) ON DELETE CASCADE;
 ALTER TABLE `categorias_convenio` ADD CONSTRAINT `fk_categoria_convenio` FOREIGN KEY (`id_convenio`) REFERENCES `convenios` (`id_convenio`) ON DELETE CASCADE;
 ALTER TABLE `datos_confidenciales` ADD CONSTRAINT `fk_confidencial_personal` FOREIGN KEY (`id_personal`) REFERENCES `personal` (`id_personal`) ON DELETE CASCADE ON UPDATE CASCADE;
@@ -832,8 +932,32 @@ ALTER TABLE `notificaciones` ADD CONSTRAINT `notificaciones_ibfk_1` FOREIGN KEY 
 ALTER TABLE `novedades` ADD CONSTRAINT `fk_novedad_personal` FOREIGN KEY (`id_personal`) REFERENCES `personal` (`id_personal`) ON DELETE CASCADE, ADD CONSTRAINT `fk_novedad_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE RESTRICT;
 ALTER TABLE `personal` ADD CONSTRAINT `fk_personal_pais` FOREIGN KEY (`id_pais`) REFERENCES `paises` (`id_pais`) ON DELETE SET NULL, ADD CONSTRAINT `fk_personal_provincia` FOREIGN KEY (`id_provincia`) REFERENCES `provincias` (`id_provincia`) ON DELETE SET NULL, ADD CONSTRAINT `personal_ibfk_1` FOREIGN KEY (`id_sucursal`) REFERENCES `sucursales` (`id_sucursal`), ADD CONSTRAINT `personal_ibfk_2` FOREIGN KEY (`id_area`) REFERENCES `areas` (`id_area`), ADD CONSTRAINT `personal_ibfk_3` FOREIGN KEY (`id_funcion`) REFERENCES `funciones` (`id_funcion`);
 ALTER TABLE `provincias` ADD CONSTRAINT `provincias_ibfk_1` FOREIGN KEY (`id_pais`) REFERENCES `paises` (`id_pais`);
-ALTER TABLE `sindicato` ADD CONSTRAINT `fk_sindicato_obrasocial` FOREIGN KEY (`id_obra_social`) REFERENCES `obras_sociales` (`id_obra_social`) ON DELETE SET NULL;
+ALTER TABLE `sindicatos` ADD CONSTRAINT `fk_sindicato_obrasocial` FOREIGN KEY (`id_obra_social`) REFERENCES `obras_sociales` (`id_obra_social`) ON DELETE SET NULL;
 ALTER TABLE `sucursales` ADD CONSTRAINT `sucursales_ibfk_1` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id_emp`);
 ALTER TABLE `usuarios` ADD CONSTRAINT `fk_usuario_sucursal` FOREIGN KEY (`id_sucursal`) REFERENCES `sucursales` (`id_sucursal`) ON DELETE SET NULL;
+
+-- ---
+-- PASO 5: Triggers Adicionales
+-- ---
+
+DELIMITER $$
+
+-- Trigger que se dispara DESPUÉS de ACTUALIZAR una novedad.
+DROP TRIGGER IF EXISTS `after_novedad_vacaciones_update`$$
+CREATE TRIGGER `after_novedad_vacaciones_update` AFTER UPDATE ON `novedades` FOR EACH ROW BEGIN
+    DECLARE v_dias_vacaciones INT;
+    DECLARE v_periodo YEAR;
+    IF NEW.tipo = 'Vacaciones' THEN
+        SET v_periodo = YEAR(NEW.fecha_desde);
+        SET v_dias_vacaciones = DATEDIFF(NEW.fecha_hasta, NEW.fecha_desde) + 1;
+        IF OLD.estado != 'Aprobada' AND NEW.estado = 'Aprobada' THEN
+            UPDATE `vacaciones_balance` SET `dias_tomados` = `dias_tomados` + v_dias_vacaciones, `dias_pendientes` = `dias_corresponden` - `dias_tomados` WHERE `id_personal` = NEW.id_personal AND `periodo_anio` = v_periodo;
+        ELSEIF OLD.estado = 'Aprobada' AND NEW.estado != 'Aprobada' THEN
+            UPDATE `vacaciones_balance` SET `dias_tomados` = GREATEST(0, `dias_tomados` - v_dias_vacaciones), `dias_pendientes` = `dias_corresponden` - `dias_tomados` WHERE `id_personal` = NEW.id_personal AND `periodo_anio` = v_periodo;
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
 
 COMMIT;
