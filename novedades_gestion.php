@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once 'config/session.php';
 if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
     header("Location: dashboard.php");
     exit;
@@ -149,22 +149,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <?php include 'partials/theme_switcher.php'; ?>
 
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js"></script>
 <script>
 $(document).ready(function() {
-    function escapeHtml(text) {
-        if (text === null || typeof text === 'undefined') return '';
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
-    }
     const modalEditar = new bootstrap.Modal(document.getElementById('modalEditarNovedad'));
     const modalNueva = new bootstrap.Modal(document.getElementById('modalNuevaNovedad'));
 
@@ -241,8 +233,18 @@ $(document).ready(function() {
             method: 'PUT',
             contentType: 'application/json',
             data: JSON.stringify(data),
-            success: (res) => { if (res.success) { modalEditar.hide(); cargarNovedades(); } else { alert('Error: ' + res.message); } },
-            error: (xhr) => alert('Error: ' + (xhr.responseJSON?.message || 'Error de conexión'))
+            success: (res) => { 
+                if (res.success) { 
+                    modalEditar.hide(); 
+                    cargarNovedades(); 
+                    showToast(res.message || 'Novedad actualizada', 'success');
+                } else { 
+                    showToast(res.message || 'Error al actualizar', 'error');
+                } 
+            },
+            error: (xhr) => {
+                showToast(xhr.responseJSON?.message || 'Error de conexión', 'error');
+            }
         });
     });
 
@@ -254,8 +256,15 @@ $(document).ready(function() {
                 method: 'DELETE',
                 contentType: 'application/json',
                 data: JSON.stringify({ id_novedad: id }),
-                success: (res) => { if (res.success) { cargarNovedades(); } else { alert('Error: ' + res.message); } },
-                error: (xhr) => alert('Error: ' + (xhr.responseJSON?.message || 'Error de conexión'))
+                success: (res) => { 
+                    if (res.success) { 
+                        cargarNovedades(); 
+                        showToast(res.message || 'Novedad eliminada', 'success');
+                    } else { 
+                        showToast(res.message || 'Error al eliminar', 'error');
+                    } 
+                },
+                error: (xhr) => showToast(xhr.responseJSON?.message || 'Error de conexión', 'error')
             });
         }
     });
@@ -311,8 +320,16 @@ $(document).ready(function() {
 
         $.ajax({
             url: 'api/novedades.php', method: 'POST', contentType: 'application/json', data: JSON.stringify(data),
-            success: (res) => { if (res.success) { modalNueva.hide(); cargarNovedades(); } else { alert('Error: ' + res.message); } },
-            error: (xhr) => alert('Error: ' + (xhr.responseJSON?.message || 'Error de conexión'))
+            success: (res) => { 
+                if (res.success) { 
+                    modalNueva.hide(); 
+                    cargarNovedades(); 
+                    showToast(res.message || 'Novedad creada', 'success');
+                } else { 
+                    showToast(res.message || 'Error al crear', 'error');
+                } 
+            },
+            error: (xhr) => showToast(xhr.responseJSON?.message || 'Error de conexión', 'error')
         });
     });
 

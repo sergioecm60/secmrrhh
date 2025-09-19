@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once 'config/session.php';
 if (!isset($_SESSION['user'])) {
     header("Location: index.php");
     exit;
@@ -24,6 +24,7 @@ if (!$empleado) {
     exit;
 }
 $nombre_empleado = $empleado['apellido_nombre'];
+$currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 
 <!DOCTYPE html>

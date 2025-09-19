@@ -1,9 +1,10 @@
 <?php
-session_start();
+require_once 'config/session.php';
 if (!isset($_SESSION['user'])) {
     header("Location: index.php");
     exit;
 }
+$currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -17,6 +18,9 @@ if (!isset($_SESSION['user'])) {
 </head>
 <body>
     <?php include 'partials/navbar.php'; ?>
+
+    <!-- Contenedor para notificaciones Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
 
     <div class="container main-container">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -105,6 +109,7 @@ if (!isset($_SESSION['user'])) {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/theme-switcher.js"></script>
+    <script src="assets/js/utils.js"></script>
     <script>
         $(document).ready(function() {
             cargarEmpresasSelect();
@@ -140,9 +145,9 @@ if (!isset($_SESSION['user'])) {
                         if (response.success) {
                             $('#modalSucursal').modal('hide');
                             cargarSucursales();
-                            alert('✅ ' + response.message);
+                            showToast(response.message, 'success');
                         } else {
-                            alert('❌ Error: ' + response.message);
+                            showToast(response.message, 'error');
                         }
                     }
                 });
@@ -213,10 +218,10 @@ if (!isset($_SESSION['user'])) {
                                     data: JSON.stringify({ id_sucursal: id }),
                                     success: function(response) {
                                         if (response.success) {
-                                            alert('✅ ' + response.message);
+                                            showToast(response.message, 'success');
                                             cargarSucursales($('#filtro-empresa').val());
                                         } else {
-                                            alert('❌ Error: ' + response.message);
+                                            showToast(response.message, 'error');
                                         }
                                     }
                                 });

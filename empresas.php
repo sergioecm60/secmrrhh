@@ -20,6 +20,9 @@ if (!isset($_SESSION['user'])) {
 
 <?php include('partials/navbar.php'); ?>
 
+<!-- Contenedor para notificaciones Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <div class="container main-container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Lista de Empresas</h2>
@@ -79,6 +82,7 @@ if (!isset($_SESSION['user'])) {
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js?v=<?= filemtime('assets/js/theme-switcher.js') ?>"></script>
+<script src="assets/js/utils.js?v=<?= filemtime('assets/js/utils.js') ?>"></script>
 <script>
 $(document).ready(function() {
     cargarEmpresas();
@@ -104,13 +108,13 @@ $(document).ready(function() {
                 if (response.success) {
                     $('#modalEmpresa').modal('hide');
                     cargarEmpresas();
-                    alert(response.message);
+                    showToast(response.message || 'Operación exitosa', 'success');
                 } else {
-                    alert('Error: ' + response.message);
+                    showToast(response.message || 'Ocurrió un error', 'error');
                 }
             },
-            error: function() {
-                alert('Error en la solicitud');
+            error: function(xhr) {
+                showToast(xhr.responseJSON?.message || 'Error de conexión', 'error');
             }
         });
     });
@@ -151,10 +155,10 @@ $(document).ready(function() {
                             data: JSON.stringify({ id_emp: id }), // Sending as JSON
                             success: function(response) {
                                 if (response.success) {
+                                    showToast(response.message || 'Empresa eliminada', 'success');
                                     cargarEmpresas();
-                                    alert(response.message);
                                 } else {
-                                    alert('Error: ' + response.message);
+                                    showToast(response.message || 'Error al eliminar', 'error');
                                 }
                             }
                         });
@@ -163,6 +167,12 @@ $(document).ready(function() {
             }
         });
     }
+
+    $('#modalEmpresa').on('hidden.bs.modal', function () {
+        $('#modalTitle').text('Nueva Empresa');
+        $('#empresa-id').val('');
+        $(this).find('form').trigger('reset');
+    });
 });
 </script>
 </body>

@@ -1,9 +1,10 @@
 <?php
-session_start();
+require_once 'config/session.php';
 if (!isset($_SESSION['user'])) {
     header("Location: index.php");
     exit;
 }
+$currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 
 <!DOCTYPE html>
@@ -62,8 +63,12 @@ if (!isset($_SESSION['user'])) {
 
 <?php include 'partials/theme_switcher.php'; ?>
 
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1150"></div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js"></script>
+<script src="assets/js/utils.js"></script>
 <script>
 $(document).ready(function() {
     $('#form-perfil').submit(function(e) {
@@ -73,7 +78,7 @@ $(document).ready(function() {
         const confirmPass = $('#confirm_password').val();
 
         if (nuevaPass && nuevaPass !== confirmPass) {
-            alert('❌ Las contraseñas no coinciden');
+            showToast('Las contraseñas no coinciden', 'error');
             return;
         }
 
@@ -93,11 +98,14 @@ $(document).ready(function() {
             data: JSON.stringify(data),
             success: function(response) {
                 if (response.success) {
-                    alert('✅ Perfil actualizado. La página se recargará para reflejar los cambios.');
-                    location.reload();
+                    showToast('Perfil actualizado. La página se recargará para reflejar los cambios.', 'success');
+                    setTimeout(() => location.reload(), 2000);
                 } else {
-                    alert('❌ Error: ' + response.message);
+                    showToast(response.message || 'Error al actualizar', 'error');
                 }
+            },
+            error: function(xhr) {
+                showToast(xhr.responseJSON?.message || 'Error de conexión', 'error');
             }
         });
     });

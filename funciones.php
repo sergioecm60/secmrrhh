@@ -74,6 +74,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/theme-switcher.js?v=<?= filemtime('assets/js/theme-switcher.js') ?>"></script>
+<script src="assets/js/utils.js?v=<?= filemtime('assets/js/utils.js') ?>"></script>
 <script>
 $(document).ready(function() {
     const apiFunciones = 'api/funciones.php';
@@ -101,9 +102,12 @@ $(document).ready(function() {
             data: JSON.stringify(data),
             success: function(response) {
                 if (response.success) {
-                    $('#modalFuncion').modal('hide');
+                    modal.modal('hide');
                     cargarFunciones();
-                } else { alert('Error: ' + response.message); }
+                    showToast(response.message || 'Operación exitosa', 'success');
+                } else { 
+                    showToast(response.message || 'Ocurrió un error', 'error'); 
+                }
             }
         });
     });
@@ -149,9 +153,10 @@ $(document).ready(function() {
                 data: JSON.stringify({ id_funcion: id }),
                 success: function(res) {
                     if (res.success) {
+                        showToast(res.message || 'Función eliminada', 'success');
                         cargarFunciones();
                     } else {
-                        alert('Error: ' + res.message);
+                        showToast(res.message, 'error');
                     }
                 }
             });
@@ -163,10 +168,6 @@ $(document).ready(function() {
         $('#form-funcion')[0].reset();
         $('#funcion-id').val('');
     });
-
-    function escapeHtml(text) {
-        return $('<div/>').text(text).html();
-    }
 });
 </script>
 </body>

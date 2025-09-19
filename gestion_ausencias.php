@@ -1,7 +1,7 @@
 <?php
-session_start();
-// Verificación de sesión y rol de administrador
-if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
+require_once 'config/session.php';
+// Verificación de sesión
+if (!isset($_SESSION['user'])) {
     header("Location: index.php");
     exit;
 }
