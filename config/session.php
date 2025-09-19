@@ -9,7 +9,7 @@ ini_set('session.use_trans_sid', 0);
 session_set_cookie_params([
     'lifetime' => 0, // La cookie dura hasta que se cierra el navegador.
     'path' => '/',   // Válida para todo el dominio. ¡Esta es la clave!
-    'domain' => $_SERVER['HTTP_HOST'], // O tu dominio específico.
+    'domain' => null, // Dejar que el navegador determine el dominio. Es más robusto.
     'secure' => isset($_SERVER['HTTPS']), // Enviar solo sobre HTTPS en producción.
     'httponly' => true, // No accesible por JavaScript.
     'samesite' => 'Lax' // Mitigación de CSRF moderna.
