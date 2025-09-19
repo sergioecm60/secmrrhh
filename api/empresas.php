@@ -6,7 +6,9 @@ require_once '../config/db.php';
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $stmt = $pdo->query("SELECT * FROM empresas ORDER BY denominacion");
+        $sql = "SELECT * FROM empresas ORDER BY denominacion";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
         $empresas = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'data' => $empresas]);
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {

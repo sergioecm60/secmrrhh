@@ -15,7 +15,9 @@ try {
     $idColumn = 'id_funcion';
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $stmt = $pdo->query("SELECT * FROM $tableName ORDER BY denominacion");
+        $sql = "SELECT * FROM $tableName ORDER BY denominacion";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
 
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
