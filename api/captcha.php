@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once '../config/session.php';
 
 // Generar dos números aleatorios para una suma simple.
 $num1 = rand(1, 10);

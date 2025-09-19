@@ -1,5 +1,12 @@
 <?php
+require_once '../config/session.php';
 require_once '../config/db.php';
+
+// 1. Verificar que el usuario haya iniciado sesión.
+if (!isset($_SESSION['user'])) {
+    http_response_code(403); // Forbidden
+    die("Acceso denegado. Debe iniciar sesión para exportar datos.");
+}
 
 // Forzar descarga de archivo CSV
 header('Content-Type: text/csv; charset=utf-8');

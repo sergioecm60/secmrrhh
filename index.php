@@ -1,5 +1,5 @@
 <?php 
-session_start();
+require_once 'config/session.php';
 
 // --- Preparación de datos y seguridad ---
 
