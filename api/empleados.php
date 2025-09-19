@@ -2,7 +2,6 @@
 require_once '../config/session.php';
 header('Content-Type: application/json; charset=utf-8');
 require_once '../config/db.php';
-require_once '../config/functions.php';
 
 /**
  * Maneja la subida de la foto de perfil de un empleado.
