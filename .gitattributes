@@ -1,0 +1,18 @@
+# .gitattributes
+# Este archivo le dice a Git cómo manejar los finales de línea para diferentes tipos de archivos.
+
+# Comportamiento por defecto: Git intentará adivinar si un archivo es de texto o binario.
+# Para los archivos de texto, convertirá los finales de línea al formato nativo del SO.
+* text=auto
+
+# Forzar finales de línea LF (Unix) para archivos que lo requieren.
+# Esto es CRÍTICO para que los scripts de shell (.sh) funcionen en Linux.
+.sh eol=lf
+.bash eol=lf
+.gitignore eol=lf
+.gitattributes eol=lf
+
+# Marcar explícitamente los archivos binarios para que Git no los modifique.
+*.png binary
+*.jpg binary
+*.jpeg binary
