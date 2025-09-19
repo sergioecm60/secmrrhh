@@ -2,6 +2,7 @@
 require_once '../config/session.php';
 
 header('Content-Type: application/json; charset=utf-8');
+require_once '../config/functions.php';
 require_once '../config/db.php';
 
 try {

@@ -3,6 +3,7 @@ require_once '../config/session.php';
 
 header('Content-Type: application/json; charset=utf-8');
 require_once '../config/db.php';
+require_once '../config/functions.php';
 
 // 1. Verificar el método HTTP
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -14,10 +15,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // 2. Verificar token CSRF
 $csrf_token_header = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
 if (empty($csrf_token_header) || !isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrf_token_header)) {
-    http_response_code(401); // Unificar código de error a 401 como sugerido
-    // Invalidar el token de sesión para forzar una recarga completa
-    unset($_SESSION['csrf_token']);
-    echo json_encode(['success' => false, 'message' => 'Token CSRF inválido. Por favor, recargue la página.']);
+    http_response_code(401); // Unauthorized
+    // Destruir la sesión para forzar un estado limpio en el cliente.
+    // Esto es más seguro que solo eliminar el token.
+    session_unset();
+    session_destroy();
+    // El mensaje es detectado por el frontend para recargar la página.
+    echo json_encode(['success' => false, 'message' => 'La sesión ha expirado (Error CSRF). La página se recargará.']);
     exit;
 }
 
@@ -75,10 +79,8 @@ try {
         $update_stmt = $pdo->prepare("UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP WHERE id_usuario = ?");
         $update_stmt->execute([$user['id_usuario']]);
 
-        // Registrar auditoría solo si la función existe (para evitar errores fatales si el archivo no está incluido)
-        if (function_exists('registrarAuditoria')) {
-            registrarAuditoria($pdo, 'LOGIN', 'usuarios', $user['id_usuario'], 'Inicio de sesión exitoso.');
-        }
+        // La función ahora está centralizada y siempre disponible.
+        registrarAuditoria($pdo, 'LOGIN', 'usuarios', $user['id_usuario'], 'Inicio de sesión exitoso.');
 
         echo json_encode(['success' => true, 'redirect' => 'dashboard.php']);
     } else {
