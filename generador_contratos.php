@@ -15,70 +15,55 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="assets/css/themes.css">
     <link rel="stylesheet" href="assets/css/print-recibo.css" media="print">
+    <!-- Estilos para el componente React -->
+    <style>
+        .progress-step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .progress-step-line {
+            flex-grow: 1;
+            height: 4px;
+            transition: all 0.3s ease;
+        }
+        .clickable-card {
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .clickable-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .clickable-card.active {
+            border-color: var(--bs-primary);
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.5);
+        }
+        .contract-print-area {
+            background-color: #f8f9fa;
+            padding: 2rem 0;
+        }
+        @media print {
+          .no-print { display: none !important; }
+          .contract-print-area { background-color: white; padding: 0; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
 </head>
 <body>
 <?php include('partials/navbar.php'); ?>
 
-<div class="container main-container">
-    <!-- Formulario de Generación -->
-    <div id="form-container">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h4><i class="bi bi-file-earmark-text-fill me-2"></i> Generador de Contratos Laborales</h4>
-            </div>
-            <div class="card-body p-4">
-                <form id="form-generador-contrato">
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <label for="empleado-selector" class="form-label fw-bold">1. Seleccione el Empleado</label>
-                            <select id="empleado-selector" class="form-select" required>
-                                <option value="">Cargando empleados...</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="modalidad-contrato-selector" class="form-label fw-bold">2. Seleccione la Modalidad de Contrato</label>
-                            <select id="modalidad-contrato-selector" class="form-select" required>
-                                <option value="">Cargando modalidades...</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="campos-condicionales" class="mt-4 p-3 border rounded bg-light" style="display: none;">
-                        <h5 class="mb-3">Datos Específicos del Contrato</h5>
-                        <div class="row">
-                            <div class="col-md-6 mb-3" id="campo-fecha-inicio" style="display: none;">
-                                <label for="contrato-fecha-inicio" class="form-label">Fecha de Inicio *</label>
-                                <input type="date" id="contrato-fecha-inicio" class="form-control">
-                            </div>
-                            <div class="col-md-6 mb-3" id="campo-fecha-fin" style="display: none;">
-                                <label for="contrato-fecha-fin" class="form-label">Fecha de Finalización *</label>
-                                <input type="date" id="contrato-fecha-fin" class="form-control">
-                            </div>
-                            <div class="col-12" id="campo-descripcion-obra" style="display: none;">
-                                <label for="contrato-descripcion-obra" class="form-label">Descripción de la Tarea/Obra *</label>
-                                <textarea id="contrato-descripcion-obra" class="form-control" rows="2"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-4 d-flex justify-content-end">
-                        <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-eye me-2"></i>Generar Vista Previa</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Vista Previa del Contrato -->
-    <div id="preview-container" style="display: none;">
-        <div class="d-flex justify-content-between align-items-center mb-3 no-print">
-            <h3>Vista Previa del Contrato</h3>
-            <div>
-                <button id="btn-volver-editar" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Volver a Editar</button>
-                <button id="btn-imprimir" class="btn btn-success"><i class="bi bi-printer"></i> Imprimir / Guardar PDF</button>
-            </div>
-        </div>
-        <div id="recibo-imprimible" class="card">
-            <div class="card-body p-5" id="contrato-preview-content">
-                <!-- El contenido del contrato se insertará aquí -->
+<div class="container main-container py-4">
+    <div id="root">
+        <!-- El componente React se renderizará aquí -->
+        <div class="d-flex justify-content-center align-items-center" style="min-height: 50vh;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando componente...</span>
             </div>
         </div>
     </div>
@@ -86,10 +71,28 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <?php include 'partials/theme_switcher.php'; ?>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- 1. Cargar React y ReactDOM -->
+<script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
+
+<!-- 2. Cargar Babel para transpilar JSX en el navegador -->
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+<!-- 3. Cargar Bootstrap JS (necesario para el navbar) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- 4. Cargar tus otros scripts (si son necesarios para el layout general) -->
 <script src="assets/js/theme-switcher.js"></script>
-<script src="assets/js/utils.js"></script>
-<script src="assets/js/generador-contratos.js"></script>
+
+<!-- 5. Cargar tu componente React (con type="text/babel") -->
+<script type="text/babel" src="assets/js/GeneradorContratos.js"></script>
+
+<!-- 6. Renderizar el componente en el div #root -->
+<script type="text/babel">
+    ReactDOM.render(
+        <GeneradorContratos />,
+        document.getElementById('root')
+    );
+</script>
 </body>
 </html>
