@@ -83,9 +83,9 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{$
 
                 <!-- CAPTCHA -->
                 <div class="captcha-section">
-                    <p class="captcha-label">Verificación:</p>
-                    <div class="captcha-question" id="captcha-question" title="Haz clic para refrescar">
-                        <i class="bi bi-arrow-clockwise me-2"></i>Cargando...
+                    <p class="captcha-label">Verificación (ingrese los caracteres de la imagen):</p>
+                    <div class="captcha-image-container" id="captcha-container" title="Haz clic para refrescar">
+                        <img id="captcha-image" src="api/captcha_generator.php" alt="CAPTCHA" class="captcha-image">
                     </div>
                     <div class="form-group">
                         <label for="captcha" class="visually-hidden">Respuesta de verificación</label>
@@ -149,22 +149,15 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{$
         }
 
         function cargarCaptcha() {
-            const captchaEl = $('#captcha-question');
-            captchaEl.html('<i class="bi bi-arrow-clockwise me-2 spinning"></i>Cargando...');
-            $.get('api/captcha.php', function(data) {
-                if (data && data.question) {
-                    captchaEl.html(`<i class="bi bi-question-circle me-2"></i>${data.question}`);
-                } else {
-                    captchaEl.html('<i class="bi bi-exclamation-triangle me-2"></i>Error. Clic para reintentar.');
-                }
-            }).fail(function() {
-                captchaEl.html('<i class="bi bi-exclamation-triangle me-2"></i>Error de red. Clic para reintentar.');
-            });
+            // Refrescar la imagen del captcha añadiendo un timestamp para evitar la caché
+            const captchaImg = $('#captcha-image');
+            const newSrc = 'api/captcha_generator.php?' + new Date().getTime();
+            captchaImg.attr('src', newSrc);
         }
 
         cargarCaptcha();
 
-        $('#captcha-question').click(cargarCaptcha);
+        $('#captcha-container').click(cargarCaptcha);
 
         $('#login-form').on('submit', function(e) {
             e.preventDefault();
@@ -178,7 +171,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{$
             const loginData = {
                 username: $('#username').val().trim(),
                 password: $('#password').val(),
-                captcha: $('#captcha').val().trim()
+                captcha: $('#captcha').val().trim().toLowerCase()
             };
 
             $.ajax({
